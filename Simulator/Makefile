@@ -15,6 +15,9 @@ SOURCES = main.cpp Simulator.cpp GameManagerRegistration.cpp PlayerRegistration.
 # Object files
 OBJECTS = $(SOURCES:.cpp=.o)
 
+# UserCommon object files (these are pre-compiled)
+USERCOMMON_OBJECTS = ../UserCommon/BoardReader.o ../UserCommon/GameSatelliteView.o
+
 # Header files
 HEADERS = Simulator.h loader.h CommandLineArgs.h registrars.h threadpool.h ../common/GameManagerRegistration.h ../common/TankAlgorithmRegistration.h ../common/AbstractGameManager.h ../common/Player.h ../common/TankAlgorithm.h ../UserCommon/BoardReader.h ../UserCommon/BoardConstants.h ../UserCommon/GameSatelliteView.h ../UserCommon/SatelliteBattleInfo.h
 
@@ -22,8 +25,8 @@ HEADERS = Simulator.h loader.h CommandLineArgs.h registrars.h threadpool.h ../co
 all: $(TARGET)
 
 # Build the executable
-$(TARGET): $(OBJECTS)
-	$(CXX) $(OBJECTS) -o $(TARGET) $(LDFLAGS)
+$(TARGET): $(OBJECTS) $(USERCOMMON_OBJECTS)
+	$(CXX) $(OBJECTS) $(USERCOMMON_OBJECTS) -o $(TARGET) $(LDFLAGS)
 	@echo "Built $(TARGET) successfully"
 
 # Compile source files to object files

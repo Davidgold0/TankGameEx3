@@ -105,3 +105,6 @@ private:
 // - GameManagerRegistration.cpp
 // - PlayerRegistration.cpp  
 // - TankAlgorithmRegistration.cpp
+
+// Define the static member variable
+AlgorithmRegistrar* AlgorithmRegistrar::self_ = nullptr;
