@@ -671,10 +671,10 @@ void Simulator::clearResults() {
     algorithmScores.clear();
 }
 
-const std::vector<Simulator::GameRunResult>& Simulator::getGameResults() const {
+const std::vector<GameRunResult>& Simulator::getGameResults() const {
     return gameResults;
 }
 
-const std::unordered_map<std::string, Simulator::AlgorithmScore>& Simulator::getAlgorithmScores() const {
+const std::unordered_map<std::string, AlgorithmScore>& Simulator::getAlgorithmScores() const {
     return algorithmScores;
 }
