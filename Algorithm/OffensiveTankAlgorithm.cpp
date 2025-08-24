@@ -1,4 +1,5 @@
 #include "OffensiveTankAlgorithm.h"
+#include "PathFinder.h"
 #include "../UserCommon/SatelliteBattleInfo.h"
 #include "../common/ActionRequest.h"
 #include "../UserCommon/BoardConstants.h"
@@ -10,8 +11,8 @@
 using namespace UserCommon_208000547_208000547;
 
 namespace Algorithm_208000547_208000547 {
-OffensiveTankAlgorithm::OffensiveTankAlgorithm() : boardWidth(0), boardHeight(0), turnCounter(0), tankX(-1), tankY(-1),
-      dirX(0), dirY(0), directionInitialized(false), currentMode(OperationsMode::Regular)
+OffensiveTankAlgorithm::OffensiveTankAlgorithm(int player_index, int tank_index) : boardWidth(0), boardHeight(0), turnCounter(0), tankX(-1), tankY(-1),
+    dirX(0), dirY(0), directionInitialized(false), playerIndex(player_index), currentMode(OperationsMode::Regular)
 {
     // Initialize offensive strategy
 }
@@ -66,6 +67,9 @@ void OffensiveTankAlgorithm::updateBattleInfo(BattleInfo& info)
     
     // Cast to SatelliteBattleInfo to access its methods
     SatelliteBattleInfo& satelliteInfo = static_cast<SatelliteBattleInfo&>(info);
+    
+    // Update the board first to ensure it's populated
+    satelliteInfo.updateBoard();
     
     // Store board dimensions
     boardWidth = satelliteInfo.getColumns();

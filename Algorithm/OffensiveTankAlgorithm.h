@@ -19,7 +19,7 @@ namespace Algorithm_208000547_208000547 {
             Panic
         };
 
-        OffensiveTankAlgorithm();
+        OffensiveTankAlgorithm(int player_index, int tank_index);
         ~OffensiveTankAlgorithm() override;
         
         ActionRequest getAction() override;

@@ -165,6 +165,9 @@ void DefensiveTankAlgorithm::updateBattleInfo(BattleInfo& info)
     // Cast to SatelliteBattleInfo to access its methods
     SatelliteBattleInfo& satelliteInfo = static_cast<SatelliteBattleInfo&>(info);
     
+    // Update the board first to ensure it's populated
+    satelliteInfo.updateBoard();
+    
     // Store board dimensions
     boardWidth = satelliteInfo.getColumns();
     boardHeight = satelliteInfo.getRows();
