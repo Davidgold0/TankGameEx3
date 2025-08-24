@@ -30,8 +30,7 @@ SharedLib loadSingleSO(const fs::path& filePath, RegistrarType& registrar, const
     std::cout << "  loadSingleSO: Beginning registration for " << base << std::endl;
     registrar.beginRegistration(base);
     
-    
-    std::cout << "  loadSingleSO: Attempting dlopen with path: " << lib.path << std::endl;
+    std::cout << "  loadSingleSO: Attempting dlopen with path: " << filePath.string() << std::endl;
     SharedLib lib{filePath.string(), dlopen(filePath.c_str(), RTLD_NOW | RTLD_LOCAL)};
     
     if (!lib.handle) {
