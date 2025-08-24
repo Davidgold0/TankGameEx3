@@ -46,6 +46,15 @@ struct AlgorithmScore {
     AlgorithmScore(const std::string& n) : name(n), totalScore(0), wins(0), ties(0), losses(0) {}
 };
 
+// Structure for competition game tasks
+struct GameTask {
+    const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algo1;
+    const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algo2;
+    const BoardData& gameMap;
+    int mapIndex;
+    std::string mapName;
+};
+
 class Simulator {
 private:
     std::vector<SharedLib> loadedAlgorithmLibs;

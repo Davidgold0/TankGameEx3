@@ -445,14 +445,6 @@ void Simulator::runCompetitionGames(const std::vector<BoardData>& gameMaps,
     int N = AlgorithmRegistrar::get().size();
     
     // First, collect all games that need to be played
-    struct GameTask {
-        const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algo1;
-        const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algo2;
-        const BoardData& gameMap;
-        int mapIndex;
-        std::string mapName;
-    };
-    
     std::vector<GameTask> allGames;
     int mapIndex = 0;
     
