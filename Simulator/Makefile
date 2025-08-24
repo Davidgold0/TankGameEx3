@@ -10,7 +10,7 @@ LDFLAGS = -ldl -pthread
 TARGET = simulator_208000547_208000547
 
 # Source files
-SOURCES = main.cpp Simulator.cpp GameManagerRegistration.cpp loader.cpp threadpoolusage.cpp
+SOURCES = main.cpp Simulator.cpp GameManagerRegistration.cpp PlayerRegistration.cpp TankAlgorithmRegistration.cpp loader.cpp threadpoolusage.cpp
 
 # Object files
 OBJECTS = $(SOURCES:.cpp=.o)
@@ -67,6 +67,7 @@ help:
 main.o: main.cpp Simulator.h CommandLineArgs.h
 Simulator.o: Simulator.cpp Simulator.h loader.h registrars.h ../common/GameManagerRegistration.h ../common/TankAlgorithmRegistration.h ../UserCommon/BoardReader.h
 GameManagerRegistration.o: GameManagerRegistration.cpp GameManagerRegistration.h
-
+PlayerRegistration.o: PlayerRegistration.cpp PlayerRegistration.h registrars.h
+TankAlgorithmRegistration.o: TankAlgorithmRegistration.cpp TankAlgorithmRegistration.h registrars.h
 loader.o: loader.cpp loader.h
 threadpoolusage.o: threadpoolusage.cpp threadpool.h
