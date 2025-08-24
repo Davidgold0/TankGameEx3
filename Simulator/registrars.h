@@ -5,8 +5,12 @@
 #include <string>
 #include <vector>
 #include <cassert>
+#include "../common/ActionRequest.h"
+#include "../common/BattleInfo.h"
+#include "../common/SatelliteView.h"
 #include "../common/TankAlgorithm.h"
 #include "../common/Player.h"
+#include "../common/GameResult.h"
 #include "../common/AbstractGameManager.h"
 #include <stdexcept>
 
