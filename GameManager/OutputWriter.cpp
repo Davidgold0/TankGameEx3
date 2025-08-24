@@ -1,16 +1,18 @@
 #include "OutputWriter.h"
 #include <iostream>
 
-OutputWriter::OutputWriter(const std::string& fileName) {
-    outputFile.open(fileName);
-    if (!outputFile.is_open()) {
-        throw std::runtime_error("Could not open output file: " + fileName);
+OutputWriter::OutputWriter(const std::string& fileName, bool verbose) : verbose(verbose) {
+    if (verbose) {
+        outputFile.open(fileName);
+        if (!outputFile.is_open()) {
+            throw std::runtime_error("Could not open output file: " + fileName);
+        }
     }
     tankHistory = std::vector<std::vector<RoundInfo>>();
 }
 
 OutputWriter::~OutputWriter() {
-    if (outputFile.is_open()) {
+    if (verbose && outputFile.is_open()) {
         outputFile.close();
     }
 }
@@ -44,6 +46,10 @@ void OutputWriter::addRoundForTank(int tankId, const RoundInfo& info) {
 }
 
 void OutputWriter::writeRoundToFile(const std::vector<RoundInfo>& currentRound) {
+    if (!verbose) {
+        return;
+    }
+    
     bool firstAction = true;
     
     // Write actions in order of tank IDs
@@ -74,6 +80,10 @@ void OutputWriter::writeRoundToFile(const std::vector<RoundInfo>& currentRound) 
 }
 
 void OutputWriter::writeOutputFile() {
+    if (!verbose) {
+        return;
+    }
+    
     // Get the number of rounds from any tank's history
     if (tankHistory.empty()) {
         return;
@@ -98,6 +108,10 @@ void OutputWriter::writeOutputFile() {
 }
 
 void OutputWriter::writeGameEnd(int winner, int remainingTanks) {
+    if (!verbose) {
+        return;
+    }
+    
     if (winner == 0) {
         outputFile << "Tie, both players have zero tanks" << std::endl;
     } else {
@@ -106,16 +120,28 @@ void OutputWriter::writeGameEnd(int winner, int remainingTanks) {
 }
 
 void OutputWriter::writeMaxStepsTie(int maxSteps, int player1Tanks, int player2Tanks) {
+    if (!verbose) {
+        return;
+    }
+    
     outputFile << "Tie, reached max steps = " << maxSteps 
                << ", player 1 has " << player1Tanks 
                << " tanks, player 2 has " << player2Tanks << " tanks" << std::endl;
 }
 
 void OutputWriter::writeZeroShellsTie() {
+    if (!verbose) {
+        return;
+    }
+    
     outputFile << "Tie, both players have zero shells for <" << ZERO_SHELLS_STEPS << "> steps" << std::endl;
 }
 
 void OutputWriter::writeCurrentRound() {
+    if (!verbose) {
+        return;
+    }
+    
     if (tankHistory.empty()) {
         return;
     }

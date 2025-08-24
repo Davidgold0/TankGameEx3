@@ -1,5 +1,4 @@
-#ifndef SIMULATOR_H
-#define SIMULATOR_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -11,6 +10,11 @@
 #include <functional>
 #include <dlfcn.h>
 #include "../UserCommon/BoardReader.h"
+#include "loader.h"
+#include "registrars.h"
+
+using namespace UserCommon_208000547_208000547;
+
 // Forward declarations
 class AbstractGameManager;
 class Player;
@@ -19,38 +23,6 @@ class TankAlgorithm;
 // Type aliases for dynamic loading
 using GameManagerFactory = std::function<std::unique_ptr<AbstractGameManager>(bool verbose)>;
 using TankAlgorithmFactory = std::function<std::unique_ptr<TankAlgorithm>(int player_index, int tank_index)>;
-
-// Structure to hold loaded libraries
-struct LoadedLibrary {
-    void* handle;
-    std::string filename;
-    std::vector<std::string> gameManagerNames;
-    std::vector<std::string> algorithmNames;
-    
-    LoadedLibrary(void* h, const std::string& fname) : handle(h), filename(fname) {}
-    ~LoadedLibrary() {
-        if (handle) {
-            dlclose(handle);
-        }
-    }
-    
-    // Helper methods to populate names
-    void addGameManagerName(const std::string& name) {
-        gameManagerNames.push_back(name);
-    }
-    
-    void addAlgorithmName(const std::string& name) {
-        algorithmNames.push_back(name);
-    }
-    
-    bool hasGameManagers() const {
-        return !gameManagerNames.empty();
-    }
-    
-    bool hasAlgorithms() const {
-        return !algorithmNames.empty();
-    }
-};
 
 // Structure for game results
 struct GameRunResult {
@@ -76,11 +48,9 @@ struct AlgorithmScore {
 
 class Simulator {
 private:
-    std::vector<std::unique_ptr<LoadedLibrary>> loadedLibraries;
-    std::unordered_map<std::string, GameManagerFactory> gameManagerFactories;
-    std::unordered_map<std::string, TankAlgorithmFactory> tankAlgorithmFactories;
+    std::vector<SharedLib> loadedAlgorithmLibs;
+    std::vector<SharedLib> loadedGameManagerLibs;
     
-    // Threading support
     std::vector<std::thread> workerThreads;
     std::mutex resultsMutex;
     std::condition_variable cv;
@@ -89,24 +59,15 @@ private:
     std::vector<GameRunResult> gameResults;
     std::unordered_map<std::string, AlgorithmScore> algorithmScores;
     
-    // Helper methods
-    bool loadLibrary(const std::string& libraryPath);
-    void unloadAllLibraries();
     std::string generateTimestamp();
-    
-    // Symbol discovery methods
-    bool findGameManagerFactories(void* handle, const std::string& libraryPath, LoadedLibrary& library);
-    bool findTankAlgorithmFactories(void* handle, const std::string& libraryPath, LoadedLibrary& library);
-    std::string extractLibraryName(const std::string& libraryPath);
-    
-    // Registration system integration
-    void integrateWithRegistrationSystem(void* handle, const std::string& libraryPath);
-    void integrateWithTankAlgorithmRegistration();
-    void runSingleGame(const std::string& gameManagerName, 
-                      const std::string& algorithm1Name, 
-                      const std::string& algorithm2Name,
+    std::string extractLibraryName(const std::string& filepath);
+
+    void runSingleGame(const GameManagerRegistrar::Entry& gameManagerEntry, 
+                      const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algorithm1Entry, 
+                      const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algorithm2Entry,
                       const std::string& mapFilename,
-                      BoardData& gameMap);
+                      BoardData& gameMap,
+                      bool verbose);
     
     // Thread worker methods
     void workerThreadFunction();
@@ -122,6 +83,9 @@ private:
     
     // Game map parsing - now using BoardData directly
     std::vector<BoardData> loadGameMaps(const std::string& mapsFolder);
+
+    // Cleanup method for managing resources
+    void cleanup(bool isPostExecution);
 
 public:
     Simulator();
@@ -141,10 +105,11 @@ public:
                            int numThreads = 1,
                            bool verbose = false);
     
+    // Public cleanup method for external use
+    void performCleanup(bool isPostExecution = false);
+    
     // Utility methods
     void clearResults();
     const std::vector<GameRunResult>& getGameResults() const;
     const std::unordered_map<std::string, AlgorithmScore>& getAlgorithmScores() const;
 };
-
-#endif // SIMULATOR_H

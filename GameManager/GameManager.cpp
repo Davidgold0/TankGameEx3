@@ -2,28 +2,25 @@
 #include "../UserCommon/GameSatelliteView.h"
 #include <algorithm>
 #include <set>
+#include <memory>
+#include "../common/GameManagerRegistration.h"
 
 using namespace std;
-using namespace BoardConstants;
+using namespace UserCommon_208000547_208000547;
+namespace GameManager_208000547_208000547 {
 
+GameManager::GameManager(bool verbose) : verbose_(verbose),
+    creationOrderCounter(0),
+    allTanksOutOfShells(false),
+    roundsSinceNoShells(0)
+{}
 
-GameManager::GameManager(PlayerFactory &player_factory, TankAlgorithmFactory &algorithmFactory)
-    : playerFactory(player_factory), algorithmFactory(algorithmFactory), creationOrderCounter(0),
-      allTanksOutOfShells(false), roundsSinceNoShells(0)
-{
-}
-
-void GameManager::readBoard(string fileName) {
-    inputFileName = fileName;  // Store the input filename
-    gameData = BoardReader::readBoard(fileName);
-    std::cout << "Game data: " << gameData.rows << " " << gameData.columns << std::endl;
-}
-
-void GameManager::setOutputFile() {
+void GameManager::setOutputFile(string inputFileName) {
     // Create output filename based on input filename
     string outputFileName = "output_" + inputFileName;
-    outputWriter = make_unique<OutputWriter>(outputFileName);
+    outputWriter = make_unique<OutputWriter>(outputFileName, verbose_);
 }
+
 
 bool GameManager::checkAllTanksOutOfShells() {
     // Check player 1 tanks
@@ -60,8 +57,9 @@ bool GameManager::checkImmediateGameEnd() {
         std::cout << "Rounds since all tanks ran out of shells: " << roundsSinceNoShells << std::endl;
         
         // Check if 40 rounds have passed since all tanks ran out of shells
-        if (roundsSinceNoShells >= OutputWriter::ZERO_SHELLS_STEPS) {
+        if (roundsSinceNoShells >= 40) { // ZERO_SHELLS_STEPS constant
             std::cout << "Game end: 40 rounds have passed since all tanks ran out of shells" << std::endl;
+            updateGameResultReason(GameResult::ZERO_SHELLS);
             outputWriter->writeZeroShellsTie();
             return true;
         }
@@ -69,14 +67,17 @@ bool GameManager::checkImmediateGameEnd() {
     
     if (gameData.player1TankCount == 0 && gameData.player2TankCount == 0) {
         std::cout << "Game end: Both players have no tanks remaining - Tie" << std::endl;
-        outputWriter->writeGameEnd(0, 0); // Tie
+        updateGameResultReason(GameResult::ALL_TANKS_DEAD);
+        outputWriter->writeGameEnd(0, 0);
         return true;
     } else if (gameData.player1TankCount == 0) {
         std::cout << "Game end: Player 1 has no tanks remaining - Player 2 wins" << std::endl;
+        updateGameResultReason(GameResult::ALL_TANKS_DEAD);
         outputWriter->writeGameEnd(2, gameData.player2TankCount);
         return true;
     } else if (gameData.player2TankCount == 0) {
         std::cout << "Game end: Player 2 has no tanks remaining - Player 1 wins" << std::endl;
+        updateGameResultReason(GameResult::ALL_TANKS_DEAD);
         outputWriter->writeGameEnd(1, gameData.player1TankCount);
         return true;
     }
@@ -119,12 +120,16 @@ void GameManager::sortTankPositions(vector<TankPosition>& positions) {
         });
 }
 
-void GameManager::createTanksFromPositions(const vector<TankPosition>& positions) {
+void GameManager::createTanksFromPositions(const vector<TankPosition>& positions, 
+                                         TankAlgorithmFactory& player1_factory, 
+                                         TankAlgorithmFactory& player2_factory) {
     for (const auto& pos : positions) {
         int dx = (pos.playerId == 1) ? -1 : 1;  // Player 1 faces left (-1,0), Player 2 faces right (1,0)
         int dy = 0;  // Both players start with horizontal direction
         
-        auto algorithm = algorithmFactory.create(pos.playerId, pos.tankIndex);
+        TankAlgorithmFactory& factory = (pos.playerId == 1) ? player1_factory : player2_factory;
+        auto algorithm = factory(pos.playerId, pos.tankIndex);
+        
         if (pos.playerId == 1) {
             player1Tanks.emplace_back(pos.x, pos.y, dx, dy, std::move(algorithm), 
                                     gameData.columns, gameData.rows, pos.playerId, creationOrderCounter++, gameData.numShells);
@@ -135,14 +140,16 @@ void GameManager::createTanksFromPositions(const vector<TankPosition>& positions
     }
 }
 
-void GameManager::initializePlayersAndTanks() {
-    // Clear any existing tanks
+void GameManager::initializePlayersAndTanks(Player& player1, Player& player2, 
+                                          TankAlgorithmFactory& player1_factory, 
+                                          TankAlgorithmFactory& player2_factory) {
+    // Clear existing tanks
     player1Tanks.clear();
     player2Tanks.clear();
     
-    // Create players with board dimensions
-    playerOne = playerFactory.create(1, gameData.columns, gameData.rows, gameData.maxStep, gameData.numShells);
-    playerTwo = playerFactory.create(2, gameData.columns, gameData.rows, gameData.maxStep, gameData.numShells);
+    // Store player references
+    playerOne = &player1;
+    playerTwo = &player2;
     
     // Reset creation order counter
     creationOrderCounter = 0;
@@ -152,7 +159,7 @@ void GameManager::initializePlayersAndTanks() {
     sortTankPositions(tankPositions);
     
     // Create tanks in sorted order
-    createTanksFromPositions(tankPositions);
+    createTanksFromPositions(tankPositions, player1_factory, player2_factory);
 }
 
 void GameManager::detectShellCrossings(vector<bool>& shellsToRemove, map<pair<size_t, size_t>, vector<size_t>>& nextPositions) {
@@ -712,10 +719,13 @@ void GameManager::processTankAction(TankInfo& tank, ActionRequest action) {
             GameSatelliteView satelliteView(roundStartBoard, gameData.rows, gameData.columns, tank.getX(), tank.getY());
             
             // Get the appropriate player based on tank's player ID
-            Player* player = (tank.getPlayerId() == 1) ? playerOne.get() : playerTwo.get();
+            Player* player = (tank.getPlayerId() == 1) ? playerOne : playerTwo;
             
             // Update the tank's algorithm with battle info
-            player->updateTankWithBattleInfo(*tank.getAlgorithm(), satelliteView);
+            TankAlgorithm* algo = tank.getAlgorithm();
+            if (algo) {
+                player->updateTankWithBattleInfo(*algo, satelliteView);
+            }
             break;
         }
             
@@ -847,6 +857,9 @@ void GameManager::runGameLoop() {
     for (size_t step = 0; step < gameData.maxStep; step++) {
         std::cout << "\n==================== Round " << step + 1 << " ====================" << std::endl;
         
+        // Increment round counter in result
+        gameResult.rounds = step + 1;
+        
         // Save the current board state before any movements
         std::cout << "Saving current board state..." << std::endl;
         roundStartBoard = gameData.board;
@@ -875,10 +888,10 @@ void GameManager::runGameLoop() {
         // Log the round information
         std::cout << "Logging round information..." << std::endl;
         logRound();
-
-        // Write the current round to the output file
-        std::cout << "Writing round to output file..." << std::endl;
         outputWriter->writeCurrentRound();
+
+        // Round completed
+        std::cout << "Round " << step + 1 << " completed" << std::endl;
 
         // Print current board state
         std::cout << "Current board state after round " << step + 1 << ":" << std::endl;
@@ -892,6 +905,7 @@ void GameManager::runGameLoop() {
         std::cout << "Checking for game end conditions..." << std::endl;
         if (checkImmediateGameEnd()) {
             std::cout << "Game ended after round " << step + 1 << std::endl;
+            finalizeGameResult();
             return;  // Exit immediately after writing the game end message
         }
         
@@ -900,27 +914,124 @@ void GameManager::runGameLoop() {
 
     // If we reach here, we hit max steps
     std::cout << "Game reached maximum steps (" << gameData.maxStep << ")" << std::endl;
+    updateGameResultReason(GameResult::MAX_STEPS);
+    finalizeGameResult();
     outputWriter->writeMaxStepsTie(gameData.maxStep, 
         gameData.player1TankCount, 
         gameData.player2TankCount);
 }
 
-void GameManager::run() {
-    std::cout << "\nStarting game..." << std::endl;
+GameResult GameManager::run(
+    size_t map_width, size_t map_height,
+    const SatelliteView& map, // <= a snapshot, NOT updated
+    string map_name,
+    size_t max_steps, size_t num_shells,
+    Player& player1, string name1, Player& player2, string name2, 
+    TankAlgorithmFactory player1_tank_algo_factory,
+    TankAlgorithmFactory player2_tank_algo_factory) {
+    
+    std::cout << "\nStarting game with new interface..." << std::endl;
+    
+    // Convert SatelliteView to internal board format
+    convertSatelliteViewToBoard(map, map_width, map_height);
+    
+    setOutputFile(map_name);
+
+    // Set game parameters
+    gameData.maxStep = max_steps;
+    gameData.numShells = num_shells;
+    
+    // Initialize game result
+    initializeGameResult();
+    
     std::cout << "Initial board state:" << std::endl;
     printBoard();
-    setOutputFile();  // Empty string since we use input filename
     
     std::cout << "Initializing players and tanks..." << std::endl;
-    initializePlayersAndTanks();
+    initializePlayersAndTanks(player1, player2, player1_tank_algo_factory, player2_tank_algo_factory);
 
     if (checkImmediateGameEnd()) {
         std::cout << "Game ended immediately due to initial conditions." << std::endl;
-        return;
+        finalizeGameResult();
+        return std::move(gameResult);
     }
     
     std::cout << "Starting game loop..." << std::endl;
     runGameLoop();
     
     std::cout << "Game finished." << std::endl;
+    
+    // Finalize and return the result
+    finalizeGameResult();
+    return std::move(gameResult);
 }
+
+void GameManager::convertSatelliteViewToBoard(const SatelliteView& map, size_t map_width, size_t map_height) {
+    // Initialize board dimensions
+    gameData.rows = map_height;
+    gameData.columns = map_width;
+    
+    // Initialize tank counts to 0
+    gameData.player1TankCount = 0;
+    gameData.player2TankCount = 0;
+    
+    // Initialize board with empty spaces
+    gameData.board.resize(map_height, vector<char>(map_width, EMPTY_SPACE));
+    
+    // Convert SatelliteView to internal board format
+    for (size_t y = 0; y < map_height; y++) {
+        for (size_t x = 0; x < map_width; x++) {
+            char cell = map.getObjectAt(x, y);
+            gameData.board[y][x] = cell;
+            
+            // Count tanks for each player
+            if (cell == PLAYER1_TANK) {
+                gameData.player1TankCount++;
+            } else if (cell == PLAYER2_TANK) {
+                gameData.player2TankCount++;
+            }
+        }
+    }
+}
+
+void GameManager::initializeGameResult() {
+    gameResult.winner = 0; // Default to tie
+    gameResult.reason = GameResult::MAX_STEPS; // Default reason
+    gameResult.rounds = 0;
+    gameResult.remaining_tanks.clear();
+}
+
+void GameManager::updateGameResultReason(GameResult::Reason reason) {
+    gameResult.reason = reason;
+}
+
+void GameManager::finalizeGameResult() {
+    // Set winner based on remaining tanks
+    if(gameResult.reason == GameResult::MAX_STEPS) {
+        gameResult.winner = 0; // Tie
+    } else if(gameResult.reason == GameResult::ZERO_SHELLS) {
+        gameResult.winner = 0; // Tie
+    } else if(gameResult.reason == GameResult::ALL_TANKS_DEAD) {
+        if (gameData.player1TankCount > 0 && gameData.player2TankCount == 0) {
+            gameResult.winner = 1; // Player 1 wins
+        } else if (gameData.player2TankCount > 0 && gameData.player1TankCount == 0) {
+            gameResult.winner = 2; // Player 2 wins
+        } else {
+            gameResult.winner = 0; // Tie
+        }
+    }
+    
+    // Set remaining tanks count
+    gameResult.remaining_tanks.clear();
+    gameResult.remaining_tanks.push_back(gameData.player1TankCount);
+    gameResult.remaining_tanks.push_back(gameData.player2TankCount);
+    
+    // Create final game state SatelliteView from current board
+    gameResult.gameState = std::make_unique<GameSatelliteView>(
+        gameData.board, gameData.rows, gameData.columns, gameData.rows + 1, gameData.columns + 1);
+}
+}
+
+// at the very end of GameManager.cpp, after includes and definitions
+using GM_208000547_208000547 = GameManager_208000547_208000547::GameManager;
+REGISTER_GAME_MANAGER(GM_208000547_208000547);

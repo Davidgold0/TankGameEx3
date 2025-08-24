@@ -9,6 +9,7 @@
 class OutputWriter {
 private:
     std::ofstream outputFile;
+    bool verbose;
     
     // 2D vector matrix to store tank history
     // First dimension: tank ID
@@ -19,7 +20,7 @@ private:
     std::string actionToString(ActionRequest action) const;
 
 public:
-    OutputWriter(const std::string& fileName);
+    OutputWriter(const std::string& fileName, bool verbose = true);
     ~OutputWriter();
 
     static constexpr int ZERO_SHELLS_STEPS = 40;

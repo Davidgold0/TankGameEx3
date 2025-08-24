@@ -2,7 +2,8 @@
 #include <iostream>
 
 using namespace std;
-using namespace BoardConstants;
+
+namespace UserCommon_208000547_208000547 {
 
 void BoardReader::logError(const string& errorMessage) {
     ofstream errorFile("board_errors.txt", ios::app);
@@ -34,7 +35,7 @@ size_t BoardReader::parseValue(const string& value, const string& param, const s
     }
     catch (const invalid_argument &e) {
         logError("Error: Invalid format: Expecting " + param + " to be unsigned int" + line);
-        throw runtime_error("Invalid format: Expecting " + param + " to be unsigned int" + line);
+        throw runtime_error("Error: Invalid format: Expecting " + param + " to be unsigned int" + line);
     }
 }
 
@@ -146,4 +147,6 @@ BoardData BoardReader::readBoard(const string& fileName) {
     buildBoard(f, data);
     validateTanks(data);
     return data;
+}
+
 } 

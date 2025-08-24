@@ -1,2 +1,0 @@
-using namespace Algorithm_123456789;
-REGISTER_TANK_ALGORITHM(TankAlgorithm_123456789);

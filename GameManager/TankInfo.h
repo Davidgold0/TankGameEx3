@@ -1,8 +1,10 @@
 #pragma once
 #include <memory>
 #include "MovableObject.h"
-#include "../common/TankAlgorithm.h"
+#include <functional>
+#include "../common/BattleInfo.h"
 #include "../common/ActionRequest.h"
+#include "../common/TankAlgorithm.h"
 #include "RoundInfo.h"
 #include <optional>
 #include <iostream>

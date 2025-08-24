@@ -1,6 +1,6 @@
 #pragma once
 
-namespace BoardConstants {
+namespace UserCommon_208000547_208000547 {
     // Basic board elements
     const char WALL = '#';
     const char DAMAGED_WALL = '-';
@@ -23,7 +23,7 @@ namespace BoardConstants {
     // Helper function to check if a character represents a collision
     inline bool isCollision(char c) {
         return c != WALL && c != DAMAGED_WALL && c != MINE && 
-               c != EMPTY_SPACE && c != PLAYER1_TANK && c != PLAYER2_TANK && 
-               c != SHELL;
+                c != EMPTY_SPACE && c != PLAYER1_TANK && c != PLAYER2_TANK && 
+                c != SHELL;
     }
 } 

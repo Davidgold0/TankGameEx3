@@ -1,5 +1,7 @@
 #include "GameSatelliteView.h"
 
+namespace UserCommon_208000547_208000547 {
+
 GameSatelliteView::GameSatelliteView(const vector<vector<char>>& board, size_t rows, size_t columns,
                                    size_t requestingTankX, size_t requestingTankY)
     : board(board), rows(rows), columns(columns), 
@@ -10,7 +12,7 @@ GameSatelliteView::~GameSatelliteView() {}
 char GameSatelliteView::getObjectAt(size_t x, size_t y) const {
     // Check if coordinates are out of bounds
     if (x >= columns || y >= rows) {
-        return BoardConstants::INVALID_LOCATION;
+        return INVALID_LOCATION;
     }
 
     // If this is the requesting tank's position, return '%'
@@ -23,21 +25,23 @@ char GameSatelliteView::getObjectAt(size_t x, size_t y) const {
 
     // Map the cell character to the satellite view character according to rules
     switch (cell) {
-        case BoardConstants::WALL:
-        case BoardConstants::DAMAGED_WALL:
+        case WALL:
+        case DAMAGED_WALL:
             return '#';
-        case BoardConstants::PLAYER1_TANK:
+        case PLAYER1_TANK:
             return '1';
-        case BoardConstants::PLAYER2_TANK:
+        case PLAYER2_TANK:
             return '2';
-        case BoardConstants::MINE:
+        case MINE:
             return '@';
-        case BoardConstants::SHELL:
-        case BoardConstants::MINE_SHELL_COLLISION:
+        case SHELL:
+        case MINE_SHELL_COLLISION:
             return '*';
-        case BoardConstants::EMPTY_SPACE:
+        case EMPTY_SPACE:
             return ' ';
         default:
             return ' ';  // Default to empty space for any other characters
     }
+}
+
 }

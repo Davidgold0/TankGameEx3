@@ -4,6 +4,8 @@
 #include <vector>
 #include <cstddef> 
 
+namespace UserCommon_208000547_208000547 {
+
 class SatelliteBattleInfo : public BattleInfo {
 private:
     SatelliteView* satelliteView;
@@ -82,4 +84,6 @@ public:
             }
         }
     }
-}; 
+};
+
+} 

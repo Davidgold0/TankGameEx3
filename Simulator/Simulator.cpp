@@ -1,13 +1,15 @@
 #include "Simulator.h"
 #include "../common/AbstractGameManager.h"
-#include "../common/Player.h"
-#include "../common/TankAlgorithm.h"
-#include "../common/GameResult.h"
 #include "../common/SatelliteView.h"
+#include "../common/TankAlgorithm.h"
+#include "../common/Player.h"
+#include "../common/GameResult.h"
 #include "../common/GameManagerRegistration.h"
 #include "../common/TankAlgorithmRegistration.h"
 #include "../UserCommon/GameSatelliteView.h"
-
+#include "../UserCommon/BoardConstants.h"
+#include "loader.h"
+#include "registrars.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -19,6 +21,13 @@
 #include <sstream>
 #include <tuple>
 #include <map>
+#include <vector>
+#include <memory>
+#include <functional>
+#include <string>
+#include <cstddef>
+
+using namespace UserCommon_208000547_208000547;
 
 namespace fs = std::filesystem;
 
@@ -27,52 +36,29 @@ Simulator::Simulator() {
 }
 
 Simulator::~Simulator() {
-    unloadAllLibraries();
+    // SharedLib destructors automatically close handles
 }
 
-bool Simulator::loadLibrary(const std::string& libraryPath) {
-    void* handle = dlopen(libraryPath.c_str(), RTLD_LAZY);
-    if (!handle) {
-        std::cerr << "Error loading library " << libraryPath << ": " << dlerror() << std::endl;
-        return false;
+void Simulator::cleanup(bool isPostExecution) {
+    std::cout << "Performing " << (isPostExecution ? "post-execution" : "pre-execution") << " cleanup..." << std::endl;
+    
+    // Common cleanup operations for both modes
+    AlgorithmRegistrar::get().clear();
+    GameManagerRegistrar::get().clear();
+    loadedAlgorithmLibs.clear();
+    loadedGameManagerLibs.clear();
+    
+    // Additional cleanup only for pre-execution
+    if (!isPostExecution) {
+        gameResults.clear();
+        algorithmScores.clear();
     }
     
-    // Clear any existing error
-    dlerror();
-    
-    // Integrate with registration system
-    integrateWithRegistrationSystem(handle, libraryPath);
-    
-    // Create library wrapper first
-    auto library = std::make_unique<LoadedLibrary>(handle, libraryPath);
-    
-    // Try to find and register factories from the loaded library
-    bool hasFactories = false;
-    
-    // Look for GameManager factories
-    if (findGameManagerFactories(handle, libraryPath, *library)) {
-        hasFactories = true;
-    }
-    
-    // Look for TankAlgorithm factories
-    if (findTankAlgorithmFactories(handle, libraryPath, *library)) {
-        hasFactories = true;
-    }
-    
-    if (!hasFactories) {
-        std::cout << "Info: No factories found in library " << libraryPath << " (this may be normal for some libraries)" << std::endl;
-        // Don't fail here - some libraries might not have factories
-    }
-    
-    // Store the library wrapper
-    loadedLibraries.push_back(std::move(library));
-    
-    std::cout << "Successfully loaded library: " << libraryPath << std::endl;
-    return true;
+    std::cout << (isPostExecution ? "Post-execution" : "Pre-execution") << " cleanup completed." << std::endl;
 }
 
-void Simulator::unloadAllLibraries() {
-    loadedLibraries.clear();
+void Simulator::performCleanup(bool isPostExecution) {
+    cleanup(isPostExecution);
 }
 
 std::string Simulator::generateTimestamp() {
@@ -87,67 +73,45 @@ std::string Simulator::generateTimestamp() {
     return ss.str();
 }
 
-void Simulator::runSingleGame(const std::string& gameManagerName,
-                             const std::string& algorithm1Name,
-                             const std::string& algorithm2Name,
+std::string Simulator::extractLibraryName(const std::string& filepath) {
+    fs::path path(filepath);
+    return path.stem().string();
+}
+
+void Simulator::runSingleGame(const GameManagerRegistrar::Entry& gameManagerEntry,
+                             const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algorithm1Entry,
+                             const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algorithm2Entry,
                              const std::string& mapFilename,
-                             BoardData& gameMap) {
+                             BoardData& gameMap,
+                             bool verbose) {
     try {
-        // 1. Create the game manager instance using factory
-        auto gameManagerIt = gameManagerFactories.find(gameManagerName);
-        if (gameManagerIt == gameManagerFactories.end()) {
-            std::cerr << "Error: GameManager factory not found for: " << gameManagerName << std::endl;
-            return;
-        }
+        // 1. Create the game manager directly from the entry
+        std::unique_ptr<AbstractGameManager> gm = gameManagerEntry.factory(verbose);
         
-        auto gameManager = gameManagerIt->second(false); // verbose = false
-        if (!gameManager) {
-            std::cerr << "Error: Failed to create GameManager instance for: " << gameManagerName << std::endl;
-            return;
-        }
+        // 2. Create players using the algorithm factories directly from the entries
+        const size_t W = gameMap.columns, H = gameMap.rows, MAX_STEPS = gameMap.maxStep, NUM_SHELLS = gameMap.numShells;
+        auto p1 = algorithm1Entry.createPlayer(1, /*x*/W /*y*/H, MAX_STEPS, NUM_SHELLS);
+        auto p2 = algorithm2Entry.createPlayer(2, /*x*/W, /*y*/H, MAX_STEPS, NUM_SHELLS);
         
-        // 2. Create TankAlgorithm instances with TankAlgorithm factories
-        auto algorithm1It = tankAlgorithmFactories.find(algorithm1Name);
-        auto algorithm2It = tankAlgorithmFactories.find(algorithm2Name);
-        
-        if (algorithm1It == tankAlgorithmFactories.end()) {
-            std::cerr << "Error: TankAlgorithm factory not found for: " << algorithm1Name << std::endl;
-            return;
-        }
-        
-        if (algorithm2It == tankAlgorithmFactories.end()) {
-            std::cerr << "Error: TankAlgorithm factory not found for: " << algorithm2Name << std::endl;
-            return;
-        }
-        
-        // 3. Create GameSatelliteView
-        auto satelliteView = std::make_unique<GameSatelliteView>(gameMap.board, gameMap.rows, gameMap.columns, gameMap.rows + 1, gameMap.columns + 1);
-        
-        // Create player instances
-        auto player1 = std::make_unique<GamePlayer>(1);
-        auto player2 = std::make_unique<GamePlayer>(2);
-        
-        // 5. Execute the actual game using GameManager::run()
-        GameResult gameResult = gameManager->run(
-            gameMap.columns, gameMap.rows,
-            *satelliteView,
-            gameMap.mapName,
-            gameMap.maxStep, gameMap.numShells,
-            *player1, algorithm1Name,
-            *player2, algorithm2Name,
-            algorithm1It->second,
-            algorithm2It->second
+        // 3. Create GameSatelliteView and run the game
+        GameSatelliteView map(W, H);
+        GameResult res = gm->run(
+            W, H,
+            map, gameMap.mapName,
+            MAX_STEPS, NUM_SHELLS,
+            *p1, algorithm1Entry.name(), *p2, algorithm2Entry.name(),
+            algorithm1Entry.tankFactory(), algorithm2Entry.tankFactory()
         );
         
-        // 6. Process and store the game results
+        // 4. Process and store the game results
         GameRunResult result;
-        result.gameManagerName = gameManagerName;
-        result.algorithm1Name = algorithm1Name;
-        result.algorithm2Name = algorithm2Name;
-        result.winner = gameResult.winner;
+        result.gameManagerName = gameManagerEntry.so_name;
+        result.algorithm1Name = algorithm1Entry.name();
+        result.algorithm2Name = algorithm2Entry.name();
+        result.winner = res.winner;
         
         // Convert reason enum to string
-        switch (gameResult.reason) {
+        switch (res.reason) {
             case GameResult::ALL_TANKS_DEAD:
                 result.reason = "ALL_TANKS_DEAD";
                 break;
@@ -162,23 +126,32 @@ void Simulator::runSingleGame(const std::string& gameManagerName,
                 break;
         }
         
-        result.rounds = gameResult.rounds;
+        result.rounds = res.rounds;
         
         // Convert final game state to string representation
-        if (gameResult.gameState) {
+        if (res.gameState) {
             std::ostringstream stateStream;
-            for (size_t y = 0; y < mapHeight; ++y) {
-                for (size_t x = 0; x < mapWidth; ++x) {
-                    stateStream << gameResult.gameState->getObjectAt(x, y);
+            for (size_t y = 0; y < H; ++y) {
+                for (size_t x = 0; x < W; ++x) {
+                    stateStream << res.gameState->getObjectAt(x, y);
                 }
-                if (y < mapHeight - 1) {
+                if (y < H - 1) {
                     stateStream << '\n';
                 }
             }
             result.finalGameState = stateStream.str();
         } else {
             // Fallback to original map if no final state
-            result.finalGameState = mapContent;
+            std::ostringstream mapStream;
+            for (size_t y = 0; y < H; ++y) {
+                for (size_t x = 0; x < W; ++x) {
+                    mapStream << gameMap.board[y][x];
+                }
+                if (y < H - 1) {
+                    mapStream << '\n';
+                }
+            }
+            result.finalGameState = mapStream.str();
         }
         
         // Thread-safe result storage
@@ -187,7 +160,7 @@ void Simulator::runSingleGame(const std::string& gameManagerName,
             gameResults.push_back(result);
         }
         
-        std::cout << "Game completed: " << gameManagerName << " vs " << algorithm1Name << " vs " << algorithm2Name 
+        std::cout << "Game completed: " << gameManagerEntry.so_name << " vs " << algorithm1Entry.name() << " vs " << algorithm2Entry.name() 
                   << " - Winner: " << result.winner << " (" << result.reason << ") in " << result.rounds << " rounds" << std::endl;
         
     } catch (const std::exception& e) {
@@ -238,32 +211,47 @@ bool Simulator::runComparativeMode(const std::string& gameMapFilename,
     std::cout << "Algorithm 2: " << algorithm2Filename << std::endl;
     std::cout << "Threads: " << numThreads << std::endl;
     
-    // Load the algorithms
-    if (!loadLibrary(algorithm1Filename)) {
-        std::cerr << "Failed to load algorithm 1: " << algorithm1Filename << std::endl;
-        return false;
-    }
+    // Clear previous registrations and loaded libraries
+    cleanup(false); // Pre-execution cleanup
     
-    if (!loadLibrary(algorithm2Filename)) {
-        std::cerr << "Failed to load algorithm 2: " << algorithm2Filename << std::endl;
-        return false;
-    }
-    
-    // Load all game managers from the folder
+    // Load algorithms with proper error handling
+    std::vector<SharedLib> algoLibs;
     try {
-        for (const auto& entry : fs::directory_iterator(gameManagersFolder)) {
-            if (entry.is_regular_file() && entry.path().extension() == ".so") {
-                if (!loadLibrary(entry.path().string())) {
-                    std::cerr << "Failed to load game manager: " << entry.path().string() << std::endl;
-                }
-            }
+        algoLibs.push_back(loadAlgorithmSO(algorithm1Filename));
+        algoLibs.push_back(loadAlgorithmSO(algorithm2Filename));
+        std::cout << "Successfully loaded " << algoLibs.size() << " algorithms" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Error loading algorithms: " << e.what() << std::endl;
+        return false;
+    }
+    
+    // Load game managers with proper error handling
+    std::vector<SharedLib> gmLibs;
+    try {
+        gmLibs = loadGameManagerSOs(gameManagersFolder);
+        if (gmLibs.empty()) {
+            std::cerr << "No game managers loaded from folder: " << gameManagersFolder << std::endl;
+            return false;
         }
     } catch (const std::exception& e) {
-        std::cerr << "Error scanning game managers folder: " << e.what() << std::endl;
+        std::cerr << "Error loading game managers: " << e.what() << std::endl;
         return false;
     }
     
-    // Load and parse the game map using BoardReader
+    if (AlgorithmRegistrar::get().size() < 2) {
+        std::cerr << "Insufficient algorithms loaded: " << AlgorithmRegistrar::get().size() << " (need 2)" << std::endl;
+        return false;
+    }
+    
+    // Store the loaded libraries
+    loadedAlgorithmLibs = std::move(algoLibs);
+    loadedGameManagerLibs = std::move(gmLibs);
+    
+    // Get the algorithm entries directly
+    const auto& algo1Entry = AlgorithmRegistrar::get().begin()[0];
+    const auto& algo2Entry = AlgorithmRegistrar::get().begin()[1];
+    
+    // Load the game map
     BoardData gameMap;
     try {
         gameMap = BoardReader::readBoard(gameMapFilename);
@@ -272,42 +260,21 @@ bool Simulator::runComparativeMode(const std::string& gameMapFilename,
         return false;
     }
     
-    // Read the actual map content from the file
-    std::string mapContent;
-    try {
-        std::ifstream mapFile(gameMapFilename);
-        if (!mapFile.is_open()) {
-            std::cerr << "Failed to open map file for reading content: " << gameMapFilename << std::endl;
-            return false;
-        }
-        
-        std::string line;
-        while (std::getline(mapFile, line)) {
-            mapContent += line + "\n";
-        }
-        // Remove the last newline if it exists
-        if (!mapContent.empty() && mapContent.back() == '\n') {
-            mapContent.pop_back();
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "Failed to read map file content: " << e.what() << std::endl;
-        return false;
-    }
-    
     // Run games with all loaded game managers
-    std::cout << "Running games with " << gameManagerFactories.size() << " game managers..." << std::endl;
+    std::cout << "Running games with " << GameManagerRegistrar::get().entries().size() << " game managers..." << std::endl;
     
-    for (const auto& gameManagerPair : gameManagerFactories) {
-        const std::string& gameManagerName = gameManagerPair.first;
+    for (const auto& gmEntry : GameManagerRegistrar::get().entries()) {
+        const std::string& gameManagerName = gmEntry.so_name;
         std::cout << "Running game with GameManager: " << gameManagerName << std::endl;
         
         // Run the single game
         runSingleGame(
-            gameManagerName,
-            algorithm1Name,
-            algorithm2Name,
+            gmEntry,
+            algo1Entry,
+            algo2Entry,
             gameMapFilename,
-            gameMap
+            gameMap,
+            verbose
         );
     }
     
@@ -319,6 +286,10 @@ bool Simulator::runComparativeMode(const std::string& gameMapFilename,
     writeComparativeResults(outputFilename, gameMapFilename, algorithm1Filename, algorithm2Filename);
     
     std::cout << "Comparative mode completed. Results written to: " << outputFilename << std::endl;
+    
+    // Clean up after execution
+    cleanup(true); // Post-execution cleanup
+    
     return true;
 }
 
@@ -333,30 +304,51 @@ bool Simulator::runCompetitionMode(const std::string& gameMapsFolder,
     std::cout << "Algorithms folder: " << algorithmsFolder << std::endl;
     std::cout << "Threads: " << numThreads << std::endl;
     
-    // Load the game manager
-    if (!loadLibrary(gameManagerFilename)) {
-        std::cerr << "Failed to load game manager: " << gameManagerFilename << std::endl;
+    // Clear previous registrations and loaded libraries
+    cleanup(false); // Pre-execution cleanup
+    
+    // Load algorithms with proper error handling
+    std::vector<SharedLib> algoLibs;
+    try {
+        algoLibs = loadAlgorithmSOs(algorithmsFolder);
+        if (algoLibs.empty()) {
+            std::cerr << "No algorithms loaded from folder: " << algorithmsFolder << std::endl;
+            return false;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Error loading algorithms: " << e.what() << std::endl;
         return false;
     }
     
-    // Load all algorithms from the folder
+    // Load the specific game manager with proper error handling
+    std::vector<SharedLib> gmLibs;
     try {
-        for (const auto& entry : fs::directory_iterator(algorithmsFolder)) {
-            if (entry.is_regular_file() && entry.path().extension() == ".so") {
-                if (!loadLibrary(entry.path().string())) {
-                    std::cerr << "Failed to load algorithm: " << entry.path().string() << std::endl;
-                }
-            }
+        gmLibs = loadGameManagerSOs(fs::path(gameManagerFilename).parent_path());
+        if (gmLibs.empty()) {
+            std::cerr << "No game managers loaded from folder: " << fs::path(gameManagerFilename).parent_path().string() << std::endl;
+            return false;
         }
     } catch (const std::exception& e) {
-        std::cerr << "Error scanning algorithms folder: " << e.what() << std::endl;
+        std::cerr << "Error loading game managers: " << e.what() << std::endl;
         return false;
     }
+    
+    if (AlgorithmRegistrar::get().size() < 2) {
+        std::cerr << "Insufficient algorithms loaded: " << AlgorithmRegistrar::get().size() << " (need at least 2 for competition)" << std::endl;
+        return false;
+    }
+    
+    // Store the loaded libraries
+    loadedAlgorithmLibs = std::move(algoLibs);
+    loadedGameManagerLibs = std::move(gmLibs);
+    
+    // Get the game manager entry directly
+    const auto& gmEntry = GameManagerRegistrar::get().entries()[0];
     
     // Load all game maps
     std::vector<BoardData> gameMaps = loadGameMaps(gameMapsFolder);
     if (gameMaps.empty()) {
-        std::cerr << "No game maps found in folder: " << gameMapsFolder << std::endl;
+        std::cerr << "No game maps found in " << gameMapsFolder << std::endl;
         return false;
     }
     
@@ -364,53 +356,33 @@ bool Simulator::runCompetitionMode(const std::string& gameMapsFolder,
     algorithmScores.clear();
     
     // Populate algorithm scores from loaded algorithms
-    for (const auto& algorithmPair : tankAlgorithmFactories) {
-        algorithmScores[algorithmPair.first] = AlgorithmScore(algorithmPair.first);
+    for (const auto& algo : AlgorithmRegistrar::get()) {
+        algorithmScores[algo.name()] = AlgorithmScore(algo.name());
     }
     
     // Run competition games - each algorithm vs every other algorithm on each map
-    std::cout << "Running competition games with " << tankAlgorithmFactories.size() << " algorithms on " << gameMaps.size() << " maps..." << std::endl;
+    std::cout << "Running competition games with " << AlgorithmRegistrar::get().size() << " algorithms on " << gameMaps.size() << " maps..." << std::endl;
     
     for (const auto& gameMap : gameMaps) {
         std::cout << "Running games on map: " << gameMap.mapName << std::endl;
         
-        // Read the actual map content
-        std::string mapContent;
-        try {
-            std::ifstream mapFile(gameMapsFolder + "/" + gameMap.mapName);
-            if (!mapFile.is_open()) {
-                std::cerr << "Failed to open map file: " << gameMap.mapName << std::endl;
-                continue;
-            }
-            
-            std::string line;
-            while (std::getline(mapFile, line)) {
-                mapContent += line + "\n";
-            }
-            if (!mapContent.empty() && mapContent.back() == '\n') {
-                mapContent.pop_back();
-            }
-        } catch (const std::exception& e) {
-            std::cerr << "Failed to read map content for " << gameMap.mapName << ": " << e.what() << std::endl;
-            continue;
-        }
-        
         // Run games between all algorithm pairs
-        for (const auto& algorithm1Pair : tankAlgorithmFactories) {
-            for (const auto& algorithm2Pair : tankAlgorithmFactories) {
-                if (algorithm1Pair.first >= algorithm2Pair.first) {
+        for (const auto& algo1 : AlgorithmRegistrar::get()) {
+            for (const auto& algo2 : AlgorithmRegistrar::get()) {
+                if (algo1.name() >= algo2.name()) {
                     continue; // Skip duplicate pairs and self vs self
                 }
                 
-                std::cout << "Running " << algorithm1Pair.first << " vs " << algorithm2Pair.first << " on " << gameMap.mapName << std::endl;
+                std::cout << "Running " << algo1.name() << " vs " << algo2.name() << " on " << gameMap.mapName << std::endl;
                 
                 // Run the game
                 runSingleGame(
-                    extractLibraryName(gameManagerFilename),
-                    algorithm1Pair.first,
-                    algorithm2Pair.first,
+                    gmEntry,
+                    algo1,
+                    algo2,
                     gameMap.mapName,
-                    gameMap
+                    gameMap,
+                    verbose
                 );
             }
         }
@@ -424,6 +396,10 @@ bool Simulator::runCompetitionMode(const std::string& gameMapsFolder,
     writeCompetitionResults(outputFilename, gameMapsFolder, gameManagerFilename);
     
     std::cout << "Competition mode completed. Results written to: " << outputFilename << std::endl;
+    
+    // Clean up after execution
+    cleanup(true); // Post-execution cleanup
+    
     return true;
 }
 
@@ -640,147 +616,48 @@ const std::unordered_map<std::string, Simulator::AlgorithmScore>& Simulator::get
     return algorithmScores;
 }
 
-// Symbol discovery methods implementation
-bool Simulator::findGameManagerFactories(void* handle, const std::string& libraryPath, LoadedLibrary& library) {
-    // Clear any existing error
-    dlerror();
-    
-    // Look for GameManagerFactory symbols
-    // Common naming patterns for GameManager factories
-    std::vector<std::string> symbolNames = {
-        "createGameManagerFactory",
-        "getGameManagerFactory",
-        "GameManagerFactory",
-        "gameManagerFactory"
-    };
-    
-    for (const auto& symbolName : symbolNames) {
-        void* symbol = dlsym(handle, symbolName.c_str());
-        if (symbol) {
-            // Found a GameManager factory symbol
-            auto factory = reinterpret_cast<GameManagerFactory*>(symbol);
-            if (factory) {
-                std::string libName = extractLibraryName(libraryPath);
-                gameManagerFactories[libName] = *factory;
-                library.addGameManagerName(libName);
-                std::cout << "Found GameManager factory: " << symbolName << " in " << libName << std::endl;
-                return true;
-            }
-        }
-    }
-    
-    // Check for error
-    const char* error = dlerror();
-    if (error) {
-        std::cerr << "Error searching for GameManager factories in " << libraryPath << ": " << error << std::endl;
-    }
-    
-    return false;
-}
+int DemoMain(int argc, char** argv) {
+    // Example folders; in your simulator parse them from CLI
+    fs::path algorithmsFolder = "./algorithms";
+    fs::path gameManagersFolder = "./gamemanagers";
 
+    // 1) load .so files
+    auto algoLibs = loadAlgorithmSOs(algorithmsFolder);
+    auto gmLibs   = loadGameManagerSOs(gameManagersFolder);
 
+    if(gmLibs.empty() || AlgorithmRegistrar::get().size() < 1) {
+        std::cerr << "Nothing to run\n";
+        return 1;
+    }
 
-bool Simulator::findTankAlgorithmFactories(void* handle, const std::string& libraryPath, LoadedLibrary& library) {
-    // Clear any existing error
-    dlerror();
-    
-    // Look for TankAlgorithmFactory symbols
-    std::vector<std::string> symbolNames = {
-        "createTankAlgorithmFactory",
-        "getTankAlgorithmFactory",
-        "TankAlgorithmFactory",
-        "tankAlgorithmFactory"
-    };
-    
-    for (const auto& symbolName : symbolNames) {
-        void* symbol = dlsym(handle, symbolName.c_str());
-        if (symbol) {
-            // Found a TankAlgorithm factory symbol
-            auto factory = reinterpret_cast<TankAlgorithmFactory*>(symbol);
-            if (factory) {
-                std::string libName = extractLibraryName(libraryPath);
-                tankAlgorithmFactories[libName] = *factory;
-                library.addAlgorithmName(libName);
-                std::cout << "Found TankAlgorithm factory: " << symbolName << " in " << libName << std::endl;
-                return true;
-            }
-        }
-    }
-    
-    // Check for error
-    const char* error = dlerror();
-    if (error) {
-        std::cerr << "Error searching for TankAlgorithm factories in " << libraryPath << ": " << error << std::endl;
-    }
-    
-    return false;
-}
+    // 2) pick the first GM and first two algorithms as a demo
+    const auto& gmEntry = GameManagerRegistrar::get().entries().front();
+    std::unique_ptr<AbstractGameManager> gm = gmEntry.factory(/*verbose*/false);
 
-std::string Simulator::extractLibraryName(const std::string& libraryPath) {
-    // Extract the base name without path and extension
-    size_t lastSlash = libraryPath.find_last_of("/\\");
-    size_t lastDot = libraryPath.find_last_of('.');
-    
-    if (lastSlash == std::string::npos) {
-        lastSlash = 0;
-    } else {
-        lastSlash++; // Skip the slash
-    }
-    
-    if (lastDot == std::string::npos || lastDot <= lastSlash) {
-        lastDot = libraryPath.length();
-    }
-    
-    return libraryPath.substr(lastSlash, lastDot - lastSlash);
-}
+    auto it = AlgorithmRegistrar::get().begin();
+    const auto& a1 = *it;
+    const auto& a2 = (std::next(it) != AlgorithmRegistrar::get().end()) ? *std::next(it) : *it; // if only one, use same
 
-void Simulator::integrateWithRegistrationSystem(void* handle, const std::string& libraryPath) {
-    // Set the library name for registration system
-    std::string libName = extractLibraryName(libraryPath);
-    
-    // Try to set the library name in the registration system
-    // Look for the setGameManagerLibraryName function
-    void* setLibNameFunc = dlsym(handle, "setGameManagerLibraryName");
-    if (setLibNameFunc) {
-        auto setLibName = reinterpret_cast<void(*)(const char*)>(setLibNameFunc);
-        setLibName(libName.c_str());
-        std::cout << "Integrated with registration system for library: " << libName << std::endl;
-    }
-    
-    // Also try to retrieve any already registered factories
-    void* getFactoryFunc = dlsym(handle, "getGameManagerFactory");
-    if (getFactoryFunc) {
-        auto getFactory = reinterpret_cast<std::function<std::unique_ptr<AbstractGameManager>(bool)>(*)(const char*)>(getFactoryFunc);
-        auto factory = getFactory(libName.c_str());
-        if (factory) {
-            gameManagerFactories[libName] = factory;
-            std::cout << "Retrieved GameManager factory from registration system for: " << libName << std::endl;
-        }
-    }
-    
-    // Integrate with TankAlgorithmRegistration
-    integrateWithTankAlgorithmRegistration();
-}
+    // 3) construct players via the player factories
+    const size_t W = 10, H = 8, MAX_STEPS = 100, NUM_SHELLS = 10;
+    auto p1 = a1.createPlayer(1, /*x*/1, /*y*/1, MAX_STEPS, NUM_SHELLS);
+    auto p2 = a2.createPlayer(2, /*x*/W-2, /*y*/H-2, MAX_STEPS, NUM_SHELLS);
 
-void Simulator::integrateWithTankAlgorithmRegistration() {
-    // Get the algorithm registrar instance
-    auto& registrar = TankAlgorithmRegistration::getTankAlgorithmRegistration();
-    
-    // Process all registered algorithms
-    for (const auto& algorithmEntry : registrar) {
-        std::string algorithmName = algorithmEntry.name();
-        
-        // Check if we already have this algorithm
-        if (tankAlgorithmFactories.find(algorithmName) == tankAlgorithmFactories.end()) {
-            
-            // Add the TankAlgorithm factory if available
-            if (algorithmEntry.hasTankAlgorithmFactory()) {
-                // We need to create a copy of the factory since the original is const
-                // This is a limitation of the current design
-                std::cout << "Found TankAlgorithm factory in TankAlgorithmRegistration for: " << algorithmName << std::endl;
-            }
-        }
-    }
-    
-    std::cout << "Integrated with TankAlgorithmRegistration, found " << registrar.count() << " algorithm entries" << std::endl;
+    // 4) prepare map snapshot and call run
+    DummySatelliteView map(W, H);
+    GameResult res = gm->run(
+        W, H,
+        map, "demo_map",
+        MAX_STEPS, NUM_SHELLS,
+        *p1, a1.name(), *p2, a2.name(),
+        a1.tankFactory(), a2.tankFactory()
+    );
+
+    std::cout << "Result winner=" << res.winner
+              << " rounds=" << res.rounds << "\n";
+
+    // 5) important: all objects created from the .so must be destroyed
+    // BEFORE the SharedLib destructors dlclose them. We used stack order to ensure that.
+
+    return 0;
 }

@@ -1,9 +1,12 @@
 #pragma once
+#include <cstddef>
 #include "../common/SatelliteView.h"
 #include <vector>
 #include "BoardConstants.h"
 
 using namespace std;
+
+namespace UserCommon_208000547_208000547 {
 
 class GameSatelliteView : public SatelliteView {
 private:
@@ -18,4 +21,6 @@ public:
                      size_t requestingTankX, size_t requestingTankY);
     virtual ~GameSatelliteView() override;
     virtual char getObjectAt(size_t x, size_t y) const override;
-}; 
+};
+
+} 

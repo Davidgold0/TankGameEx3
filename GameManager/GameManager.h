@@ -3,20 +3,28 @@
 #include <cstddef>
 #include <string>
 #include <vector>
-#include <fstream>
-#include <stdexcept>
-#include <iostream>
-#include "../common/Player.h"
-#include "../common/TankAlgorithm.h"
-#include "../UserCommon/BoardConstants.h"
-#include "BoardReader.h"
-#include "OutputWriter.h"
-#include "TankInfo.h"
-#include "Shell.h"
 #include <map>
 #include <utility>
+#include <functional>
+
+#include "../common/ActionRequest.h"
+#include "../common/BattleInfo.h"
+#include "../common/SatelliteView.h"
+#include "../common/TankAlgorithm.h"
+#include "../common/Player.h"
+#include "../common/GameResult.h"
+#include "../common/AbstractGameManager.h"
+
+#include "../UserCommon/BoardConstants.h"
+#include "../UserCommon/BoardReader.h"
+#include "TankInfo.h"
+#include "Shell.h"
+#include "OutputWriter.h"
 
 using namespace std;
+using namespace UserCommon_208000547_208000547;
+
+namespace GameManager_208000547_208000547 {
 
 struct TankPosition {
     size_t x, y;
@@ -30,18 +38,15 @@ struct TankRoundInfo {
     bool wasKilled;
 };
 
-class GameManager
+class GameManager final : public AbstractGameManager
 {
 private:
     BoardData gameData;
-    unique_ptr<Player> playerOne;
-    unique_ptr<Player> playerTwo;
-    PlayerFactory& playerFactory;
-    TankAlgorithmFactory& algorithmFactory;
-    unique_ptr<OutputWriter> outputWriter;
+    Player* playerOne = nullptr;
+    Player* playerTwo = nullptr;
     int creationOrderCounter;  // Added to track tank creation order across both players
-    string inputFileName;  // Store the input filename
-    
+    bool verbose_;
+    unique_ptr<OutputWriter> outputWriter;
     // Store tank information for each player
     vector<TankInfo> player1Tanks;
     vector<TankInfo> player2Tanks;
@@ -52,16 +57,23 @@ private:
     // Store the board state at the start of each round
     vector<vector<char>> roundStartBoard;
     
+    // Game result tracking
+    GameResult gameResult;
+    
     // Helper functions for game management
     bool checkImmediateGameEnd();
-    void initializePlayersAndTanks();
+    void initializePlayersAndTanks(Player& player1, Player& player2, 
+                                  TankAlgorithmFactory& player1_factory, 
+                                  TankAlgorithmFactory& player2_factory);
     void runGameLoop();
     void logRound();  // Added to log round information for all tanks
-    
+    void setOutputFile(string inputFileName);
     // Tank initialization helper functions
     vector<TankPosition> collectTankPositions();
     void sortTankPositions(vector<TankPosition>& positions);
-    void createTanksFromPositions(const vector<TankPosition>& positions);
+    void createTanksFromPositions(const vector<TankPosition>& positions, 
+                                 TankAlgorithmFactory& player1_factory, 
+                                 TankAlgorithmFactory& player2_factory);
 
     // Game loop helper functions
     void moveShells();  // Move all active shells once
@@ -100,13 +112,26 @@ private:
 
     bool checkAllTanksOutOfShells();  // Helper function to check if all tanks are out of shells
 
+    // Helper methods for the new interface
+    void convertSatelliteViewToBoard(const SatelliteView& map, size_t map_width, size_t map_height);
+    void initializeGameResult();
+    void updateGameResultReason(GameResult::Reason reason);
+    void finalizeGameResult();
+
 public:
-    GameManager(PlayerFactory &player_factory, TankAlgorithmFactory &algorithmFactory);
-    ~GameManager() {}
-    void readBoard(string fileName);
-    void setOutputFile();
-    void run();
+    explicit GameManager(bool verbose);
+
+    GameResult run(size_t map_width, size_t map_height,
+                const SatelliteView& map,
+                std::string map_name,
+                size_t max_steps, size_t num_shells,
+                Player& player1, std::string name1,
+                Player& player2, std::string name2,
+                TankAlgorithmFactory player1_tank_algo_factory,
+                TankAlgorithmFactory player2_tank_algo_factory) override;
     
     // Added method to access game data
     const BoardData& getGameData() const { return gameData; }
 };
+
+} // namespace GameManager_208000547_208000547

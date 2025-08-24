@@ -5,6 +5,8 @@
 #include <stdexcept>
 #include "BoardConstants.h"
 
+namespace UserCommon_208000547_208000547 {
+
 struct BoardData {
     std::string mapName;
     size_t maxStep;
@@ -34,4 +36,6 @@ private:
 
 public:
     static BoardData readBoard(const std::string& fileName);
-}; 
+};
+
+} 
