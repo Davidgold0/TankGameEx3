@@ -7,16 +7,16 @@ CXXFLAGS = -std=c++17 -Wall -Wextra -O2 -g
 LDFLAGS = -ldl -pthread
 
 # Target executable name (replace with actual submitter IDs)
-TARGET = simulator_123456789_987654321
+TARGET = simulator_208000547_208000547
 
 # Source files
-SOURCES = main.cpp Simulator.cpp TankAlgorithmRegistration.cpp GameManagerRegistration.cpp
+SOURCES = main.cpp Simulator.cpp TankAlgorithmRegistration.cpp GameManagerRegistration.cpp loader.cpp threadpoolusage.cpp
 
 # Object files
 OBJECTS = $(SOURCES:.cpp=.o)
 
 # Header files
-HEADERS = Simulator.h ../common/GameManagerRegistration.h ../common/TankAlgorithmRegistration.h ../common/AbstractGameManager.h ../common/Player.h ../common/TankAlgorithm.h
+HEADERS = Simulator.h loader.h CommandLineArgs.h registrars.h threadpool.h ../common/GameManagerRegistration.h ../common/TankAlgorithmRegistration.h ../common/AbstractGameManager.h ../common/Player.h ../common/TankAlgorithm.h ../UserCommon/BoardReader.h ../UserCommon/BoardConstants.h ../UserCommon/GameSatelliteView.h ../UserCommon/SatelliteBattleInfo.h
 
 # Default target
 all: $(TARGET)
@@ -64,7 +64,9 @@ help:
 .PHONY: all clean install uninstall test help
 
 # Dependencies
-main.o: main.cpp Simulator.h
-Simulator.o: Simulator.cpp Simulator.h ../common/GameManagerRegistration.h ../common/TankAlgorithmRegistration.h
+main.o: main.cpp Simulator.h CommandLineArgs.h
+Simulator.o: Simulator.cpp Simulator.h loader.h registrars.h ../common/GameManagerRegistration.h ../common/TankAlgorithmRegistration.h ../UserCommon/BoardReader.h
 GameManagerRegistration.o: GameManagerRegistration.cpp GameManagerRegistration.h
 TankAlgorithmRegistration.o: TankAlgorithmRegistration.cpp TankAlgorithmRegistration.h
+loader.o: loader.cpp loader.h
+threadpoolusage.o: threadpoolusage.cpp threadpool.h

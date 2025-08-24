@@ -12,7 +12,7 @@ UC_SRCS := $(filter-out %main.cpp %Registration.cpp,$(wildcard ../UserCommon/*.c
 SRCS := $(GM_SRCS) $(UC_SRCS)
 OBJS := $(SRCS:.cpp=.o)
 
-TARGET := GameManager_098765432_123456789.so
+TARGET := GameManager_208000547_208000547.so
 
 all: $(TARGET)
 
