@@ -272,11 +272,6 @@ bool Simulator::runComparativeMode(const std::string& gameMapFilename,
         return false;
     }
     
-    if (AlgorithmRegistrar::get().size() < 2) {
-        std::cerr << "Insufficient algorithms loaded: " << AlgorithmRegistrar::get().size() << " (need 2)" << std::endl;
-        return false;
-    }
-    
     // Store the loaded libraries
     loadedAlgorithmLibs = std::move(algoLibs);
     loadedGameManagerLibs = std::move(gmLibs);
