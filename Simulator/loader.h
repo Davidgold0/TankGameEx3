@@ -3,16 +3,38 @@
 #include <string>
 #include <vector>
 #include <filesystem>
+#include <utility>
+#include <dlfcn.h>
 
 namespace fs = std::filesystem;
 
-// Structure to hold shared library information and handle
 struct SharedLib {
     std::string path;
     void* handle = nullptr;
-    
-    // Destructor automatically closes the library handle
-    ~SharedLib();
+
+    SharedLib() = default;
+    SharedLib(std::string p, void* h) : path(std::move(p)), handle(h) {}
+
+    ~SharedLib() { if (handle) dlclose(handle); }
+
+    // no copying
+    SharedLib(const SharedLib&) = delete;
+    SharedLib& operator=(const SharedLib&) = delete;
+
+    // move ok
+    SharedLib(SharedLib&& other) noexcept
+        : path(std::move(other.path)), handle(other.handle) {
+        other.handle = nullptr;
+    }
+    SharedLib& operator=(SharedLib&& other) noexcept {
+        if (this != &other) {
+            if (handle) dlclose(handle);
+            path = std::move(other.path);
+            handle = other.handle;
+            other.handle = nullptr;
+        }
+        return *this;
+    }
 };
 
 // Utility function to extract base name from shared library path
