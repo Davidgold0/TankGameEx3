@@ -1,3 +1,4 @@
+#include "../common/AbstractGameManager.h"
 #include "../common/GameManagerRegistration.h"
 #include "registrars.h"
 #include <memory>

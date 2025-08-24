@@ -1,3 +1,6 @@
+#include "../common/ActionRequest.h"
+#include "../common/BattleInfo.h"
+#include "../common/TankAlgorithm.h"
 #include "../common/TankAlgorithmRegistration.h"
 #include "registrars.h"
 #include <memory>

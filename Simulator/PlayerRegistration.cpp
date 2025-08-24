@@ -1,3 +1,8 @@
+#include "../common/SatelliteView.h"
+#include "../common/ActionRequest.h"
+#include "../common/BattleInfo.h"
+#include "../common/TankAlgorithm.h"
+#include "../common/Player.h"
 #include "../common/PlayerRegistration.h"
 #include "registrars.h"
 #include <memory>
