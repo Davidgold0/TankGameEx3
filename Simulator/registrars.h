@@ -100,14 +100,3 @@ public:
 private:
     std::vector<Entry> gms_;
 };
-
-// ---- Implement the three registration ctors declared in common/*.h ----
-struct PlayerRegistration {
-    PlayerRegistration(PlayerFactory f) { AlgorithmRegistrar::get().addPlayerFactory(std::move(f)); }
-};
-struct TankAlgorithmRegistration {
-    TankAlgorithmRegistration(TankAlgorithmFactory f) { AlgorithmRegistrar::get().addTankFactory(std::move(f)); }
-};
-struct GameManagerRegistration {
-    GameManagerRegistration(GameManagerFactory f) { GameManagerRegistrar::get().setFactoryOnLast(std::move(f)); }
-};
