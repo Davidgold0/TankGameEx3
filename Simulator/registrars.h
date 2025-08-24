@@ -78,8 +78,6 @@ public:
 
 // ----- GameManager registrar: holds one GameManagerFactory per .so -----
 class GameManagerRegistrar {
-private:
-    std::vector<Entry> gms_;
 public:
     struct Entry { std::string so_name; GameManagerFactory factory; };
     static GameManagerRegistrar& get() { static GameManagerRegistrar inst; return inst; }
@@ -97,6 +95,8 @@ public:
 
     const std::vector<Entry>& entries() const { return gms_; }
     void clear() { gms_.clear(); }
+private:
+    std::vector<Entry> gms_;
 };
 
 // ---- Implement the three registration ctors declared in common/*.h ----
