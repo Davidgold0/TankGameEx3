@@ -43,6 +43,7 @@ struct AlgorithmScore {
     int ties;
     int losses;
     
+    AlgorithmScore() : name(""), totalScore(0), wins(0), ties(0), losses(0) {}
     AlgorithmScore(const std::string& n) : name(n), totalScore(0), wins(0), ties(0), losses(0) {}
 };
 
