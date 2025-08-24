@@ -100,3 +100,12 @@ public:
 private:
     std::vector<Entry> gms_;
 };
+
+// ---- Implement the registration ctors declared in common/*.h ----
+struct PlayerRegistration {
+    PlayerRegistration(PlayerFactory f) { AlgorithmRegistrar::get().addPlayerFactory(std::move(f)); }
+};
+struct TankAlgorithmRegistration {
+    TankAlgorithmRegistration(TankAlgorithmFactory f) { AlgorithmRegistrar::get().addTankFactory(std::move(f)); }
+};
+// Note: GameManagerRegistration is implemented in GameManagerRegistration.cpp
