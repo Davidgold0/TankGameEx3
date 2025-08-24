@@ -21,7 +21,7 @@ struct SharedLib {
     SharedLib(const SharedLib&) = delete;
     SharedLib& operator=(const SharedLib&) = delete;
 
-    // move ok
+    // moves transfer ownership and null out the source
     SharedLib(SharedLib&& other) noexcept
         : path(std::move(other.path)), handle(other.handle) {
         other.handle = nullptr;
@@ -29,7 +29,7 @@ struct SharedLib {
     SharedLib& operator=(SharedLib&& other) noexcept {
         if (this != &other) {
             if (handle) dlclose(handle);
-            path = std::move(other.path);
+            path   = std::move(other.path);
             handle = other.handle;
             other.handle = nullptr;
         }
