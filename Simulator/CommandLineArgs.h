@@ -8,6 +8,7 @@ struct CommandLineArgs {
     bool competition = false;
     bool verbose = false;
     std::string gameMap;
+    std::string gameMapsFolder;
     std::string gameManagersFolder;
     std::string gameManager;
     std::string algorithmsFolder;
