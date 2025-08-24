@@ -123,7 +123,7 @@ void Simulator::runSingleGame(const GameManagerRegistrar::Entry& gameManagerEntr
         GameSatelliteView map(gameMap.board, W, H, W + 1, H + 1);
         GameResult res = gm->run(
             W, H,
-            map, gameMap.mapName,
+            map, mapFilename,
             MAX_STEPS, NUM_SHELLS,
             *p1, algorithm1Entry.name(), *p2, algorithm2Entry.name(),
             algorithm1Entry.tankFactory(), algorithm2Entry.tankFactory()
