@@ -66,8 +66,8 @@ help:
 # Dependencies
 main.o: main.cpp Simulator.h CommandLineArgs.h
 Simulator.o: Simulator.cpp Simulator.h loader.h registrars.h ../common/GameManagerRegistration.h ../common/TankAlgorithmRegistration.h ../UserCommon/BoardReader.h
-GameManagerRegistration.o: GameManagerRegistration.cpp GameManagerRegistration.h
-PlayerRegistration.o: PlayerRegistration.cpp PlayerRegistration.h registrars.h
-TankAlgorithmRegistration.o: TankAlgorithmRegistration.cpp TankAlgorithmRegistration.h registrars.h
+GameManagerRegistration.o: GameManagerRegistration.cpp ../common/GameManagerRegistration.h
+PlayerRegistration.o: PlayerRegistration.cpp ../common/PlayerRegistration.h registrars.h
+TankAlgorithmRegistration.o: TankAlgorithmRegistration.cpp ../common/TankAlgorithmRegistration.h registrars.h
 loader.o: loader.cpp loader.h
 threadpoolusage.o: threadpoolusage.cpp threadpool.h
