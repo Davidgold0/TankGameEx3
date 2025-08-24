@@ -243,9 +243,17 @@ bool Simulator::runComparativeMode(const std::string& gameMapFilename,
     // Load algorithms with proper error handling
     std::vector<SharedLib> algoLibs;
     try {
-        algoLibs.push_back(loadAlgorithmSO(algorithm1Filename));
-        algoLibs.push_back(loadAlgorithmSO(algorithm2Filename));
-        std::cout << "Successfully loaded " << algoLibs.size() << " algorithms" << std::endl;
+        // Check if both algorithms are the same file to avoid loading twice
+        if (algorithm1Filename == algorithm2Filename) {
+            std::cout << "Both players using the same algorithm file: " << algorithm1Filename << std::endl;
+            algoLibs.push_back(loadAlgorithmSO(algorithm1Filename));
+            std::cout << "Successfully loaded 1 algorithm (shared between both players)" << std::endl;
+        } else {
+            algoLibs.reserve(2);
+            algoLibs.push_back(loadAlgorithmSO(algorithm1Filename));
+            algoLibs.push_back(loadAlgorithmSO(algorithm2Filename));
+            std::cout << "Successfully loaded " << algoLibs.size() << " algorithms" << std::endl;
+        }
     } catch (const std::exception& e) {
         std::cerr << "Error loading algorithms: " << e.what() << std::endl;
         return false;
@@ -276,9 +284,11 @@ bool Simulator::runComparativeMode(const std::string& gameMapFilename,
     // Get the algorithm entries directly
     const auto& registrar = AlgorithmRegistrar::get();
     auto it1 = registrar.begin();
-    auto it2 = std::next(it1);
+    
+    // If both players use the same algorithm, both entries point to the same algorithm
     const auto& algo1Entry = *it1;
-    const auto& algo2Entry = *it2;
+    const auto& algo2Entry = (algorithm1Filename == algorithm2Filename) ? 
+        algo1Entry : *std::next(it1); // Both players use same algorithm or different ones
     
     // Load the game map
     BoardData gameMap;

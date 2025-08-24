@@ -9,6 +9,11 @@
 #include "loader.h"
 namespace fs = std::filesystem;
 
+// Destructor implementation for SharedLib
+SharedLib::~SharedLib() { 
+    if(handle) dlclose(handle); 
+}
+
 std::string soBaseName(const fs::path& p) {
     // "Algorithm_123.so" -> "Algorithm_123"
     return p.stem().string();
@@ -30,8 +35,10 @@ SharedLib loadSingleSO(const fs::path& filePath, RegistrarType& registrar, const
     std::cout << "  loadSingleSO: Beginning registration for " << base << std::endl;
     registrar.beginRegistration(base);
     
-    std::cout << "  loadSingleSO: Attempting dlopen with path: " << filePath.string() << std::endl;
-    SharedLib lib{filePath.string(), dlopen(filePath.c_str(), RTLD_NOW | RTLD_LOCAL)};
+    SharedLib lib;
+    lib.path = filePath.string();
+    std::cout << "  loadSingleSO: Attempting dlopen with path: " << lib.path << std::endl;
+    lib.handle = dlopen(lib.path.c_str(), RTLD_NOW | RTLD_LOCAL);
     
     if (!lib.handle) {
         std::string error = dlerror();
