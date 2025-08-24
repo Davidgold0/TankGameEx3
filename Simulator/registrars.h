@@ -78,9 +78,10 @@ public:
 
 // ----- GameManager registrar: holds one GameManagerFactory per .so -----
 class GameManagerRegistrar {
-    struct Entry { std::string so_name; GameManagerFactory factory; };
+private:
     std::vector<Entry> gms_;
 public:
+    struct Entry { std::string so_name; GameManagerFactory factory; };
     static GameManagerRegistrar& get() { static GameManagerRegistrar inst; return inst; }
 
     void beginRegistration(const std::string& so_base_name) {
