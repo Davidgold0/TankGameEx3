@@ -12,7 +12,7 @@ using namespace UserCommon_208000547_208000547;
 
 namespace Algorithm_208000547_208000547 {
 OffensiveTankAlgorithm::OffensiveTankAlgorithm(int player_index, int tank_index) : boardWidth(0), boardHeight(0), turnCounter(0), tankX(-1), tankY(-1),
-    dirX(0), dirY(0), directionInitialized(false), playerIndex(player_index), currentMode(OperationsMode::Regular)
+    dirX(0), dirY(0), directionInitialized(false), playerIndex(player_index), tankIndex(tank_index), currentMode(OperationsMode::Regular)
 {
     // Initialize offensive strategy
 }

@@ -36,6 +36,7 @@ namespace Algorithm_208000547_208000547 {
         int dirY;
         bool directionInitialized;
         int playerIndex;
+        int tankIndex;
         OperationsMode currentMode;
         std::vector<Point> pathToClosestEnemy;
 
