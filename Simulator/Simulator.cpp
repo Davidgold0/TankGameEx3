@@ -80,6 +80,30 @@ std::string Simulator::extractLibraryName(const std::string& filepath) {
     return path.stem().string();
 }
 
+std::string Simulator::formatGameResultMessage(int winner, const std::string& reason, size_t rounds) {
+    if (winner == 0) {
+        // Tie
+        if (reason == "MAX_STEPS") {
+            return "Tie, reached max steps = " + std::to_string(rounds);
+        } else if (reason == "ZERO_SHELLS") {
+            return "Tie, both players have zero shells for <40> steps";
+        } else {
+            return "Tie, both players have zero tanks";
+        }
+    } else {
+        // Player won
+        if (reason == "ALL_TANKS_DEAD") {
+            return "Player " + std::to_string(winner) + " won with 0 tanks still alive";
+        } else if (reason == "MAX_STEPS") {
+            return "Player " + std::to_string(winner) + " won with more tanks alive";
+        } else if (reason == "ZERO_SHELLS") {
+            return "Player " + std::to_string(winner) + " won with more tanks alive";
+        } else {
+            return "Player " + std::to_string(winner) + " won";
+        }
+    }
+}
+
 void Simulator::runSingleGame(const GameManagerRegistrar::Entry& gameManagerEntry,
                              const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algorithm1Entry,
                              const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algorithm2Entry,
@@ -319,14 +343,10 @@ bool Simulator::runComparativeMode(const std::string& gameMapFilename,
         }
     }
     
-    // Generate output filename
-    std::string timestamp = generateTimestamp();
-    std::string outputFilename = gameManagersFolder + "/comparative_results_" + timestamp + ".txt";
-    
     // Write results
-    writeComparativeResults(outputFilename, gameMapFilename, algorithm1Filename, algorithm2Filename);
+    writeComparativeOutput(gameManagersFolder, gameMapFilename, algorithm1Filename, algorithm2Filename);
     
-    std::cout << "Comparative mode completed. Results written to: " << outputFilename << std::endl;
+    std::cout << "Comparative mode completed. Results written to game managers folder: " << gameManagersFolder << std::endl;
     
     // Clean up after execution
     cleanup(true); // Post-execution cleanup
@@ -406,14 +426,10 @@ bool Simulator::runCompetitionMode(const std::string& gameMapsFolder,
     
     runCompetitionGames(gameMaps, gmEntry, numThreads, verbose);
     
-    // Generate output filename
-    std::string timestamp = generateTimestamp();
-    std::string outputFilename = algorithmsFolder + "/competition_" + timestamp + ".txt";
-    
     // Write results
-    writeCompetitionResults(outputFilename, gameMapsFolder, gameManagerFilename);
+    writeCompetitionResults(algorithmsFolder, gameMapsFolder, gameManagerFilename);
     
-    std::cout << "Competition mode completed. Results written to: " << outputFilename << std::endl;
+    std::cout << "Competition mode completed. Results written to algorithms folder: " << algorithmsFolder << std::endl;
     
     // Clean up after execution
     cleanup(true); // Post-execution cleanup
@@ -524,62 +540,24 @@ void Simulator::runCompetitionGames(const std::vector<BoardData>& gameMaps,
     }
 }
 
-void Simulator::writeComparativeResults(const std::string& outputPath,
+void Simulator::writeComparativeOutput(const std::string& gameManagersFolder,
                                        const std::string& gameMapFilename,
                                        const std::string& algorithm1Filename,
                                        const std::string& algorithm2Filename) {
+    // Generate output filename
+    std::string timestamp = generateTimestamp();
+    std::string outputPath = gameManagersFolder + "/comparative_results_" + timestamp + ".txt";
+    
     std::ofstream outputFile(outputPath);
     if (!outputFile.is_open()) {
         std::cerr << "Error: Could not create output file: " << outputPath << std::endl;
-        std::cout << "Writing results to screen instead:" << std::endl;
-        
-        // Write to screen instead
-        std::cout << "game_map=" << gameMapFilename << std::endl;
-        std::cout << "algorithm1=" << algorithm1Filename << std::endl;
-        std::cout << "algorithm2=" << algorithm2Filename << std::endl;
-        std::cout << std::endl;
-        
-        // Group results by outcome and write them
-        if (gameResults.empty()) {
-            std::cout << "No games were run or no results were collected." << std::endl;
-            return;
-        }
-        
-        // Group results by outcome (winner, reason, rounds)
-        std::map<std::tuple<int, std::string, size_t>, std::vector<GameRunResult>> groupedResults;
-        
-        for (const auto& result : gameResults) {
-            auto key = std::make_tuple(result.winner, result.reason, result.rounds);
-            groupedResults[key].push_back(result);
-        }
-        
-        // Write grouped results
-        for (const auto& group : groupedResults) {
-            int winner = std::get<0>(group.first);
-            std::string reason = std::get<1>(group.first);
-            size_t rounds = std::get<2>(group.first);
-            
-            std::cout << "winner=" << winner << " reason=" << reason << " rounds=" << rounds << std::endl;
-            
-            for (const auto& result : group.second) {
-                std::cout << "game_manager=" << result.gameManagerName << std::endl;
-            }
-            
-            // Write the final game state for this group (use the first result's state)
-            if (!group.second.empty()) {
-                std::cout << "final_game_state=" << std::endl;
-                std::cout << group.second[0].finalGameState << std::endl;
-            }
-            
-            std::cout << std::endl;
-        }
         return;
     }
     
     // Write header
     outputFile << "game_map=" << gameMapFilename << std::endl;
-    outputFile << "algorithm1=" << algorithm1Filename << std::endl;
-    outputFile << "algorithm2=" << algorithm2Filename << std::endl;
+    outputFile << "algorithm1=" << extractLibraryName(algorithm1Filename) << std::endl;
+    outputFile << "algorithm2=" << extractLibraryName(algorithm2Filename) << std::endl;
     outputFile << std::endl;
     
     // Group results by outcome and write them
@@ -588,11 +566,11 @@ void Simulator::writeComparativeResults(const std::string& outputPath,
         return;
     }
     
-    // Group results by outcome (winner, reason, rounds)
-    std::map<std::tuple<int, std::string, size_t>, std::vector<GameRunResult>> groupedResults;
+    // Group results by exact same final result (winner, reason, rounds, final state)
+    std::map<std::tuple<int, std::string, size_t, std::string>, std::vector<GameRunResult>> groupedResults;
     
     for (const auto& result : gameResults) {
-        auto key = std::make_tuple(result.winner, result.reason, result.rounds);
+        auto key = std::make_tuple(result.winner, result.reason, result.rounds, result.finalGameState);
         groupedResults[key].push_back(result);
     }
     
@@ -602,15 +580,27 @@ void Simulator::writeComparativeResults(const std::string& outputPath,
         std::string reason = std::get<1>(group.first);
         size_t rounds = std::get<2>(group.first);
         
-        outputFile << "winner=" << winner << " reason=" << reason << " rounds=" << rounds << std::endl;
-        
+        // Write comma-separated list of game managers with identical results
+        bool first = true;
         for (const auto& result : group.second) {
-            outputFile << "game_manager=" << result.gameManagerName << std::endl;
+            if (!first) {
+                outputFile << ",";
+            }
+            first = false;
+            // Extract name without .so extension
+            std::string name = extractLibraryName(result.gameManagerName);
+            outputFile << name;
         }
+        outputFile << std::endl;
         
-        // Write the final game state for this group (use the first result's state)
+        // Write game result message
+        outputFile << formatGameResultMessage(winner, reason, rounds) << std::endl;
+        
+        // Write round number
+        outputFile << rounds << std::endl;
+        
+        // Write final game state
         if (!group.second.empty()) {
-            outputFile << "final_game_state=" << std::endl;
             outputFile << group.second[0].finalGameState << std::endl;
         }
         
@@ -618,60 +608,16 @@ void Simulator::writeComparativeResults(const std::string& outputPath,
     }
 }
 
-void Simulator::writeCompetitionResults(const std::string& outputPath,
+void Simulator::writeCompetitionResults(const std::string& algorithmsFolder,
                                        const std::string& gameMapsFolder,
                                        const std::string& gameManagerFilename) {
+    // Generate output filename
+    std::string timestamp = generateTimestamp();
+    std::string outputPath = algorithmsFolder + "/competition_" + timestamp + ".txt";
+    
     std::ofstream outputFile(outputPath);
     if (!outputFile.is_open()) {
         std::cerr << "Error: Could not create output file: " << outputPath << std::endl;
-        std::cout << "Writing results to screen instead:" << std::endl;
-        
-        // Write to screen instead
-        std::cout << "game_maps_folder=" << gameMapsFolder << std::endl;
-        std::cout << "game_manager=" << gameManagerFilename << std::endl;
-        std::cout << std::endl;
-        
-        // Calculate scores from game results
-        for (const auto& result : gameResults) {
-            if (result.winner == 1) {
-                // Player 1 (algorithm1) wins
-                algorithmScores[result.algorithm1Name].wins++;
-                algorithmScores[result.algorithm1Name].totalScore += 3;
-                algorithmScores[result.algorithm2Name].losses++;
-            } else if (result.winner == 2) {
-                // Player 2 (algorithm2) wins
-                algorithmScores[result.algorithm2Name].wins++;
-                algorithmScores[result.algorithm2Name].totalScore += 3;
-                algorithmScores[result.algorithm1Name].losses++;
-            } else if (result.winner == 0) {
-                // Tie
-                algorithmScores[result.algorithm1Name].ties++;
-                algorithmScores[result.algorithm1Name].totalScore += 1;
-                algorithmScores[result.algorithm2Name].ties++;
-                algorithmScores[result.algorithm2Name].totalScore += 1;
-            }
-        }
-        
-        // Convert to vector for sorting
-        std::vector<AlgorithmScore> sortedScores;
-        for (const auto& scorePair : algorithmScores) {
-            sortedScores.push_back(scorePair.second);
-        }
-        
-        // Sort by total score (descending)
-        std::sort(sortedScores.begin(), sortedScores.end(), 
-                  [](const AlgorithmScore& a, const AlgorithmScore& b) {
-                      return a.totalScore > b.totalScore;
-                  });
-        
-        // Write algorithm scores sorted by total score
-        for (const auto& score : sortedScores) {
-            std::cout << "algorithm=" << score.name 
-                      << " score=" << score.totalScore 
-                      << " wins=" << score.wins 
-                      << " ties=" << score.ties 
-                      << " losses=" << score.losses << std::endl;
-        }
         return;
     }
     
@@ -713,13 +659,9 @@ void Simulator::writeCompetitionResults(const std::string& outputPath,
                   return a.totalScore > b.totalScore;
               });
     
-    // Write algorithm scores sorted by total score
+    // Write algorithm scores sorted by total score (format: <algorithm name> <total score>)
     for (const auto& score : sortedScores) {
-        outputFile << "algorithm=" << score.name 
-                  << " score=" << score.totalScore 
-                  << " wins=" << score.wins 
-                  << " ties=" << score.ties 
-                  << " losses=" << score.losses << std::endl;
+        outputFile << score.name << " " << score.totalScore << std::endl;
     }
 }
 

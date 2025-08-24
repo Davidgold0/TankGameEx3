@@ -61,6 +61,7 @@ private:
     
     std::string generateTimestamp();
     std::string extractLibraryName(const std::string& filepath);
+    std::string formatGameResultMessage(int winner, const std::string& reason, size_t rounds);
 
     void runSingleGame(const GameManagerRegistrar::Entry& gameManagerEntry, 
                       const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algorithm1Entry, 
@@ -79,11 +80,11 @@ private:
     void workerThreadFunction();
     
     // Output methods
-    void writeComparativeResults(const std::string& outputPath, 
+    void writeComparativeOutput(const std::string& gameManagersFolder, 
                                const std::string& gameMapFilename,
                                const std::string& algorithm1Filename,
                                const std::string& algorithm2Filename);
-    void writeCompetitionResults(const std::string& outputPath,
+    void writeCompetitionResults(const std::string& algorithmsFolder,
                                 const std::string& gameMapsFolder,
                                 const std::string& gameManagerFilename);
     
