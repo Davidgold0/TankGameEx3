@@ -274,8 +274,9 @@ bool Simulator::runComparativeMode(const std::string& gameMapFilename,
     loadedGameManagerLibs = std::move(gmLibs);
     
     // Get the algorithm entries directly
-    const auto& algo1Entry = AlgorithmRegistrar::get().begin()[0];
-    const auto& algo2Entry = AlgorithmRegistrar::get().begin()[1];
+    const auto& registrar = AlgorithmRegistrar::get();
+    const auto& algo1Entry = registrar.begin()[0];
+    const auto& algo2Entry = registrar.begin()[1];
     
     // Load the game map
     BoardData gameMap;
