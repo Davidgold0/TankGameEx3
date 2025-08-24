@@ -3,7 +3,7 @@
 
 # Compiler and flags
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -Wextra -O2 -g
+CXXFLAGS = -std=c++17 -Wall -Wextra -Werror -pedantic -O2 -g
 LDFLAGS = -ldl -pthread
 
 # Target executable name (replace with actual submitter IDs)

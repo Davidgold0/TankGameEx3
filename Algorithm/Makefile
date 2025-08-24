@@ -1,6 +1,6 @@
 # GameManager/Makefile
 CXX := g++
-CXXFLAGS := -std=c++17 -O2 -g -fPIC -Wall -Wextra -I../common -I../UserCommon
+CXXFLAGS := -std=c++17 -Wall -Wextra -Werror -pedantic -O2 -g -fPIC -I../common -I../UserCommon
 
 # All cpp files in this folder, except main or registration impls
 GM_SRCS := $(filter-out %main.cpp %Registration.cpp,$(wildcard *.cpp))
