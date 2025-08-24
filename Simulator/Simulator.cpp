@@ -116,11 +116,11 @@ void Simulator::runSingleGame(const GameManagerRegistrar::Entry& gameManagerEntr
         
         // 2. Create players using the algorithm factories directly from the entries
         const size_t W = gameMap.columns, H = gameMap.rows, MAX_STEPS = gameMap.maxStep, NUM_SHELLS = gameMap.numShells;
-        auto p1 = algorithm1Entry.createPlayer(1, /*x*/W /*y*/H, MAX_STEPS, NUM_SHELLS);
-        auto p2 = algorithm2Entry.createPlayer(2, /*x*/W, /*y*/H, MAX_STEPS, NUM_SHELLS);
+        auto p1 = algorithm1Entry.createPlayer(1, W, H, MAX_STEPS, NUM_SHELLS);
+        auto p2 = algorithm2Entry.createPlayer(2, W, H, MAX_STEPS, NUM_SHELLS);
         
         // 3. Create GameSatelliteView and run the game
-        GameSatelliteView map(W, H);
+        GameSatelliteView map(gameMap.board, W, H, W + 1, H + 1);
         GameResult res = gm->run(
             W, H,
             map, gameMap.mapName,
