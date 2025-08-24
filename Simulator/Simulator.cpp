@@ -111,16 +111,27 @@ void Simulator::runSingleGame(const GameManagerRegistrar::Entry& gameManagerEntr
                              const BoardData& gameMap,
                              bool verbose) {
     try {
+        std::cout << "[LOG] Step 1: Creating game manager..." << std::endl;
         // 1. Create the game manager directly from the entry
         std::unique_ptr<AbstractGameManager> gm = gameManagerEntry.factory(verbose);
+        std::cout << "[LOG] Game manager created successfully" << std::endl;
         
+        std::cout << "[LOG] Step 2: Creating players..." << std::endl;
         // 2. Create players using the algorithm factories directly from the entries
         const size_t W = gameMap.columns, H = gameMap.rows, MAX_STEPS = gameMap.maxStep, NUM_SHELLS = gameMap.numShells;
         auto p1 = algorithm1Entry.createPlayer(1, W, H, MAX_STEPS, NUM_SHELLS);
+        std::cout << "[LOG] Player 1 created successfully" << std::endl;
         auto p2 = algorithm2Entry.createPlayer(2, W, H, MAX_STEPS, NUM_SHELLS);
+        std::cout << "[LOG] Player 2 created successfully" << std::endl;
         
+        std::cout << "[LOG] Step 3: Creating game view and starting game execution..." << std::endl;
         // 3. Create GameSatelliteView and run the game
         GameSatelliteView map(gameMap.board, W, H, W + 1, H + 1);
+        std::cout << "[LOG] Game satellite view created with dimensions " << (W + 1) << "x" << (H + 1) << std::endl;
+        
+        std::cout << "[LOG] Starting game execution..." << std::endl;
+        auto startTime = std::chrono::high_resolution_clock::now();
+        
         GameResult res = gm->run(
             W, H,
             map, mapFilename,
@@ -129,6 +140,11 @@ void Simulator::runSingleGame(const GameManagerRegistrar::Entry& gameManagerEntr
             algorithm1Entry.tankFactory(), algorithm2Entry.tankFactory()
         );
         
+        auto endTime = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+        std::cout << "[LOG] Game execution completed in " << duration.count() << "ms" << std::endl;
+        
+        std::cout << "[LOG] Step 4: Processing game results..." << std::endl;
         // 4. Process and store the game results
         GameRunResult result;
         result.gameManagerName = gameManagerEntry.so_name;
@@ -136,24 +152,31 @@ void Simulator::runSingleGame(const GameManagerRegistrar::Entry& gameManagerEntr
         result.algorithm2Name = algorithm2Entry.name();
         result.winner = res.winner;
         
+        std::cout << "[LOG] Game winner: " << res.winner << std::endl;
+        std::cout << "[LOG] Game rounds: " << res.rounds << std::endl;
+        
         // Convert reason enum to string
+        std::string reasonStr;
         switch (res.reason) {
             case GameResult::ALL_TANKS_DEAD:
-                result.reason = "ALL_TANKS_DEAD";
+                reasonStr = "ALL_TANKS_DEAD";
                 break;
             case GameResult::MAX_STEPS:
-                result.reason = "MAX_STEPS";
+                reasonStr = "MAX_STEPS";
                 break;
             case GameResult::ZERO_SHELLS:
-                result.reason = "ZERO_SHELLS";
+                reasonStr = "ZERO_SHELLS";
                 break;
             default:
-                result.reason = "UNKNOWN";
+                reasonStr = "UNKNOWN";
                 break;
         }
+        result.reason = reasonStr;
+        std::cout << "[LOG] Game end reason: " << reasonStr << std::endl;
         
         result.rounds = res.rounds;
         
+        std::cout << "[LOG] Processing final game state..." << std::endl;
         // Convert final game state to string representation
         if (res.gameState) {
             std::ostringstream stateStream;
@@ -166,6 +189,7 @@ void Simulator::runSingleGame(const GameManagerRegistrar::Entry& gameManagerEntr
                 }
             }
             result.finalGameState = stateStream.str();
+            std::cout << "[LOG] Final game state captured successfully" << std::endl;
         } else {
             // Fallback to original map if no final state
             std::ostringstream mapStream;
@@ -178,20 +202,29 @@ void Simulator::runSingleGame(const GameManagerRegistrar::Entry& gameManagerEntr
                 }
             }
             result.finalGameState = mapStream.str();
+            std::cout << "[LOG] Using original map as final state (no game state available)" << std::endl;
         }
         
+        std::cout << "[LOG] Storing results in thread-safe manner..." << std::endl;
         // Thread-safe result storage
         {
             std::lock_guard<std::mutex> lock(resultsMutex);
             gameResults.push_back(result);
+            std::cout << "[LOG] Results stored successfully. Total results count: " << gameResults.size() << std::endl;
         }
         
-        std::cout << "Game completed: " << gameManagerEntry.so_name << " vs " << algorithm1Entry.name() << " vs " << algorithm2Entry.name() 
+        std::cout << "[LOG] Game completed successfully: " << gameManagerEntry.so_name << " vs " << algorithm1Entry.name() << " vs " << algorithm2Entry.name() 
                   << " - Winner: " << result.winner << " (" << result.reason << ") in " << result.rounds << " rounds" << std::endl;
         
     } catch (const std::exception& e) {
-        std::cerr << "Error running game: " << e.what() << std::endl;
+        std::cerr << "[ERROR] Exception occurred while running game: " << e.what() << std::endl;
+        std::cerr << "[ERROR] Game Manager: " << gameManagerEntry.so_name << std::endl;
+        std::cerr << "[ERROR] Algorithm 1: " << algorithm1Entry.name() << std::endl;
+        std::cerr << "[ERROR] Algorithm 2: " << algorithm2Entry.name() << std::endl;
+        std::cerr << "[ERROR] Map file: " << mapFilename << std::endl;
     }
+    
+    std::cout << "[LOG] Single game execution finished" << std::endl;
 }
 
 void Simulator::workerThreadFunction() {
