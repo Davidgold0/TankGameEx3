@@ -278,13 +278,14 @@ bool Simulator::runComparativeMode(const std::string& gameMapFilename,
     try {
         // Check if both algorithms are the same file to avoid loading twice
         if (algorithm1Filename == algorithm2Filename) {
+            algoLibs.resize(1);
             std::cout << "Both players using the same algorithm file: " << algorithm1Filename << std::endl;
-            algoLibs.push_back(loadAlgorithmSO(algorithm1Filename));
+            algoLibs[0] = (loadAlgorithmSO(algorithm1Filename));
             std::cout << "Successfully loaded 1 algorithm (shared between both players)" << std::endl;
         } else {
-            algoLibs.reserve(2);
-            algoLibs.push_back(loadAlgorithmSO(algorithm1Filename));
-            algoLibs.push_back(loadAlgorithmSO(algorithm2Filename));
+            algoLibs.resize(2);
+            algoLibs[0] = (loadAlgorithmSO(algorithm1Filename));
+            algoLibs[1] = (loadAlgorithmSO(algorithm2Filename));
             std::cout << "Successfully loaded " << algoLibs.size() << " algorithms" << std::endl;
         }
     } catch (const std::exception& e) {

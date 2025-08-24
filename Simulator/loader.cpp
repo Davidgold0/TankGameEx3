@@ -9,11 +9,6 @@
 #include "loader.h"
 namespace fs = std::filesystem;
 
-// Destructor implementation for SharedLib
-SharedLib::~SharedLib() { 
-    if(handle) dlclose(handle); 
-}
-
 std::string soBaseName(const fs::path& p) {
     // "Algorithm_123.so" -> "Algorithm_123"
     return p.stem().string();
