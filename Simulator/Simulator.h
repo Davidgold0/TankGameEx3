@@ -50,13 +50,13 @@ struct AlgorithmScore {
 struct GameTask {
     const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algo1;
     const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algo2;
-    const BoardData& gameMap;
+    BoardData& gameMap;
     int mapIndex;
     std::string mapName;
     
     GameTask(const AlgorithmRegistrar::AlgorithmAndPlayerFactories& a1,
              const AlgorithmRegistrar::AlgorithmAndPlayerFactories& a2,
-             const BoardData& map,
+             BoardData& map,
              int mIndex,
              const std::string& mName)
         : algo1(a1), algo2(a2), gameMap(map), mapIndex(mIndex), mapName(mName) {}
