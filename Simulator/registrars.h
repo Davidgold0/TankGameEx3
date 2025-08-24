@@ -16,29 +16,31 @@
 
 // ----- Algorithm registrar: couples PlayerFactory + TankAlgorithmFactory for one .so -----
 class AlgorithmRegistrar {
-    class AlgorithmAndPlayerFactories {
-        std::string so_name_;
-        TankAlgorithmFactory tankFactory_;
-        PlayerFactory playerFactory_;
     public:
-        explicit AlgorithmAndPlayerFactories(std::string name): so_name_(std::move(name)) {}
-        const std::string& name() const { return so_name_; }
-        void setTankFactory(TankAlgorithmFactory&& f) { assert(!tankFactory_); tankFactory_ = std::move(f); }
-        void setPlayerFactory(PlayerFactory&& f)      { assert(!playerFactory_); playerFactory_ = std::move(f); }
-        bool hasTank()   const { return (bool)tankFactory_; }
-        bool hasPlayer() const { return (bool)playerFactory_; }
-        std::unique_ptr<Player> createPlayer(int pi, size_t x, size_t y, size_t ms, size_t ns) const {
-            return playerFactory_(pi, x, y, ms, ns);
-        }
-        std::unique_ptr<TankAlgorithm> createTank(int pi, int ti) const {
-            return tankFactory_(pi, ti);
-        }
-        const TankAlgorithmFactory& tankFactory() const { return tankFactory_; }
-        const PlayerFactory& playerFactory() const { return playerFactory_; }
-    };
-    std::vector<AlgorithmAndPlayerFactories> algos_;
-    static AlgorithmRegistrar* self_;
-    AlgorithmRegistrar() = default;
+        class AlgorithmAndPlayerFactories {
+            std::string so_name_;
+            TankAlgorithmFactory tankFactory_;
+            PlayerFactory playerFactory_;
+        public:
+            explicit AlgorithmAndPlayerFactories(std::string name): so_name_(std::move(name)) {}
+            const std::string& name() const { return so_name_; }
+            void setTankFactory(TankAlgorithmFactory&& f) { assert(!tankFactory_); tankFactory_ = std::move(f); }
+            void setPlayerFactory(PlayerFactory&& f)      { assert(!playerFactory_); playerFactory_ = std::move(f); }
+            bool hasTank()   const { return (bool)tankFactory_; }
+            bool hasPlayer() const { return (bool)playerFactory_; }
+            std::unique_ptr<Player> createPlayer(int pi, size_t x, size_t y, size_t ms, size_t ns) const {
+                return playerFactory_(pi, x, y, ms, ns);
+            }
+            std::unique_ptr<TankAlgorithm> createTank(int pi, int ti) const {
+                return tankFactory_(pi, ti);
+            }
+            const TankAlgorithmFactory& tankFactory() const { return tankFactory_; }
+            const PlayerFactory& playerFactory() const { return playerFactory_; }
+        };
+    private:
+        std::vector<AlgorithmAndPlayerFactories> algos_;
+        static AlgorithmRegistrar* self_;
+        AlgorithmRegistrar() = default;
 public:
     struct BadRegistration {
         std::string name; bool hasName, hasPlayer, hasTank;
