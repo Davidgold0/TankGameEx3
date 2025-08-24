@@ -1,3 +1,6 @@
+#include <string>
+#include <cstddef>
+#include <functional>
 #include "../common/ActionRequest.h"
 #include "../common/BattleInfo.h"
 #include "../common/TankAlgorithm.h"

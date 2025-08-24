@@ -1,3 +1,6 @@
+#include <string>
+#include <cstddef>
+#include <functional>
 #include "../common/SatelliteView.h"
 #include "../common/ActionRequest.h"
 #include "../common/BattleInfo.h"
