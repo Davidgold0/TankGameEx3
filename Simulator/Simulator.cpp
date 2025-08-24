@@ -477,8 +477,13 @@ void Simulator::runCompetitionGames(const std::vector<BoardData>& gameMaps,
                 }
             }
             
-            const auto& algo1 = AlgorithmRegistrar::get()[i];
-            const auto& algo2 = AlgorithmRegistrar::get()[opponentIndex];
+            const auto& registrar = AlgorithmRegistrar::get();
+            auto it1 = registrar.begin();
+            std::advance(it1, i);
+            auto it2 = registrar.begin();
+            std::advance(it2, opponentIndex);
+            const auto& algo1 = *it1;
+            const auto& algo2 = *it2;
             
             allGames.push_back({algo1, algo2, gameMap, mapIndex, gameMap.mapName});
         }
