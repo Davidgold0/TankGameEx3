@@ -4,7 +4,7 @@
 # Compiler and flags
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra -Werror -pedantic -O2 -g -fPIC
-LDFLAGS = -ldl -pthread
+LDFLAGS = -rdynamic -ldl -pthread
 
 # Target executable name (replace with actual submitter IDs)
 TARGET = simulator_208000547_208000547
