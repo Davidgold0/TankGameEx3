@@ -50,13 +50,13 @@ struct AlgorithmScore {
 struct GameTask {
     const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algo1;
     const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algo2;
-    BoardData& gameMap;
+    const BoardData& gameMap;
     int mapIndex;
     std::string mapName;
     
     GameTask(const AlgorithmRegistrar::AlgorithmAndPlayerFactories& a1,
              const AlgorithmRegistrar::AlgorithmAndPlayerFactories& a2,
-             BoardData& map,
+             const BoardData& map,
              int mIndex,
              const std::string& mName)
         : algo1(a1), algo2(a2), gameMap(map), mapIndex(mIndex), mapName(mName) {}
@@ -83,7 +83,7 @@ private:
                       const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algorithm1Entry, 
                       const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algorithm2Entry,
                       const std::string& mapFilename,
-                      BoardData& gameMap,
+                      const BoardData& gameMap,
                       bool verbose);
     
     // Competition game running logic

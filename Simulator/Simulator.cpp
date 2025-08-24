@@ -108,7 +108,7 @@ void Simulator::runSingleGame(const GameManagerRegistrar::Entry& gameManagerEntr
                              const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algorithm1Entry,
                              const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algorithm2Entry,
                              const std::string& mapFilename,
-                             BoardData& gameMap,
+                             const BoardData& gameMap,
                              bool verbose) {
     try {
         // 1. Create the game manager directly from the entry
