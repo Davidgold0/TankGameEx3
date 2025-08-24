@@ -69,6 +69,12 @@ private:
                       BoardData& gameMap,
                       bool verbose);
     
+    // Competition game running logic
+    void runCompetitionGames(const std::vector<BoardData>& gameMaps,
+                            const GameManagerRegistrar::Entry& gameManagerEntry,
+                            int numThreads,
+                            bool verbose);
+    
     // Thread worker methods
     void workerThreadFunction();
     

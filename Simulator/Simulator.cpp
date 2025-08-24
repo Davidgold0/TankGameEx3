@@ -10,6 +10,7 @@
 #include "../UserCommon/BoardConstants.h"
 #include "loader.h"
 #include "registrars.h"
+#include "threadpool.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -26,6 +27,7 @@
 #include <functional>
 #include <string>
 #include <cstddef>
+#include <thread>
 
 using namespace UserCommon_208000547_208000547;
 
@@ -263,11 +265,13 @@ bool Simulator::runComparativeMode(const std::string& gameMapFilename,
     // Run games with all loaded game managers
     std::cout << "Running games with " << GameManagerRegistrar::get().entries().size() << " game managers..." << std::endl;
     
-    for (const auto& gmEntry : GameManagerRegistrar::get().entries()) {
-        const std::string& gameManagerName = gmEntry.so_name;
+    size_t numGameManagers = GameManagerRegistrar::get().entries().size();
+    
+    // Helper function to run a single game (eliminates code duplication)
+    auto runGame = [this, &algo1Entry, &algo2Entry, &gameMapFilename, &gameMap, verbose](
+        const GameManagerRegistrar::Entry& gmEntry, const std::string& gameManagerName) {
         std::cout << "Running game with GameManager: " << gameManagerName << std::endl;
         
-        // Run the single game
         runSingleGame(
             gmEntry,
             algo1Entry,
@@ -276,6 +280,43 @@ bool Simulator::runComparativeMode(const std::string& gameMapFilename,
             gameMap,
             verbose
         );
+    };
+    
+    if (numThreads > 2 && numGameManagers > 1) {
+        // Use multi-threading for better performance
+        size_t actualThreads = std::min(static_cast<size_t>(numThreads), numGameManagers);
+        std::cout << "Using " << actualThreads << " threads for parallel execution" << std::endl;
+        
+        // Create thread pool
+        ThreadPool pool(actualThreads);
+        
+        // Submit all games to the thread pool
+        for (const auto& gmEntry : GameManagerRegistrar::get().entries()) {
+            const std::string& gameManagerName = gmEntry.so_name;
+            std::cout << "Submitting game with GameManager: " << gameManagerName << " to thread pool" << std::endl;
+            
+            // Submit the game to run in a separate thread
+            pool.submit([runGame, gmEntry, gameManagerName]() {
+                std::cout << "Running game with GameManager: " << gameManagerName << " in thread " 
+                          << std::this_thread::get_id() << std::endl;
+                
+                runGame(gmEntry, gameManagerName);
+            });
+        }
+        
+        // Wait for all games to complete
+        std::cout << "Waiting for all games to complete..." << std::endl;
+        pool.wait_idle();
+        std::cout << "All games completed!" << std::endl;
+        
+    } else {
+        // Single-threaded execution (original behavior)
+        std::cout << "Using single-threaded execution" << std::endl;
+        
+        for (const auto& gmEntry : GameManagerRegistrar::get().entries()) {
+            const std::string& gameManagerName = gmEntry.so_name;
+            runGame(gmEntry, gameManagerName);
+        }
     }
     
     // Generate output filename
@@ -360,33 +401,10 @@ bool Simulator::runCompetitionMode(const std::string& gameMapsFolder,
         algorithmScores[algo.name()] = AlgorithmScore(algo.name());
     }
     
-    // Run competition games - each algorithm vs every other algorithm on each map
+    // Run competition games with specific pairing logic
     std::cout << "Running competition games with " << AlgorithmRegistrar::get().size() << " algorithms on " << gameMaps.size() << " maps..." << std::endl;
     
-    for (const auto& gameMap : gameMaps) {
-        std::cout << "Running games on map: " << gameMap.mapName << std::endl;
-        
-        // Run games between all algorithm pairs
-        for (const auto& algo1 : AlgorithmRegistrar::get()) {
-            for (const auto& algo2 : AlgorithmRegistrar::get()) {
-                if (algo1.name() >= algo2.name()) {
-                    continue; // Skip duplicate pairs and self vs self
-                }
-                
-                std::cout << "Running " << algo1.name() << " vs " << algo2.name() << " on " << gameMap.mapName << std::endl;
-                
-                // Run the game
-                runSingleGame(
-                    gmEntry,
-                    algo1,
-                    algo2,
-                    gameMap.mapName,
-                    gameMap,
-                    verbose
-                );
-            }
-        }
-    }
+    runCompetitionGames(gameMaps, gmEntry, numThreads, verbose);
     
     // Generate output filename
     std::string timestamp = generateTimestamp();
@@ -401,6 +419,109 @@ bool Simulator::runCompetitionMode(const std::string& gameMapsFolder,
     cleanup(true); // Post-execution cleanup
     
     return true;
+}
+
+void Simulator::runCompetitionGames(const std::vector<BoardData>& gameMaps,
+                                    const GameManagerRegistrar::Entry& gameManagerEntry,
+                                    int numThreads,
+                                    bool verbose) {
+    int N = AlgorithmRegistrar::get().size();
+    
+    // First, collect all games that need to be played
+    struct GameTask {
+        const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algo1;
+        const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algo2;
+        const BoardData& gameMap;
+        int mapIndex;
+        std::string mapName;
+    };
+    
+    std::vector<GameTask> allGames;
+    int mapIndex = 0;
+    
+    for (const auto& gameMap : gameMaps) {
+        // Calculate the offset for this map: k % (N-1)
+        int offset = mapIndex % (N - 1);
+        
+        // For each algorithm, pair it with algorithm at position (i + 1 + offset) % N
+        for (int i = 0; i < N; i++) {
+            int opponentIndex = (i + 1 + offset) % N;
+            
+            // Skip if this would create a duplicate pair or self vs self
+            if (i >= opponentIndex) {
+                continue;
+            }
+            
+            // Special case: if k = N/2 - 1 (and N is even), we might have duplicate pairings
+            // Check if this pair was already played in a previous map
+            if (N % 2 == 0 && offset == (N/2 - 1)) {
+                // Check if this pair was already played in map 0
+                if (mapIndex > 0) {
+                    int map0Offset = 0;
+                    int map0OpponentIndex = (i + 1 + map0Offset) % N;
+                    if (map0OpponentIndex == opponentIndex) {
+                        std::cout << "Skipping duplicate pair " << i << " vs " << opponentIndex << " on map " << mapIndex << std::endl;
+                        continue;
+                    }
+                }
+            }
+            
+            const auto& algo1 = AlgorithmRegistrar::get()[i];
+            const auto& algo2 = AlgorithmRegistrar::get()[opponentIndex];
+            
+            allGames.push_back({algo1, algo2, gameMap, mapIndex, gameMap.mapName});
+        }
+        
+        mapIndex++;
+    }
+    
+    std::cout << "Collected " << allGames.size() << " games to play" << std::endl;
+    
+    // Helper function to run a single game
+    auto runGame = [this, &gameManagerEntry, verbose](const GameTask& task) {
+        std::cout << "Running " << task.algo1.name() << " vs " << task.algo2.name() 
+                  << " on map " << task.mapIndex << " (" << task.mapName << ")" << std::endl;
+        
+        runSingleGame(
+            gameManagerEntry,
+            task.algo1,
+            task.algo2,
+            task.mapName,
+            task.gameMap,
+            verbose
+        );
+    };
+    
+    if (numThreads > 2 && allGames.size() > 1) {
+        // Use multi-threading for better performance
+        size_t actualThreads = std::min(static_cast<size_t>(numThreads), allGames.size());
+        std::cout << "Using " << actualThreads << " threads for parallel execution" << std::endl;
+        
+        // Create thread pool
+        ThreadPool pool(actualThreads);
+        
+        // Submit all games to the thread pool
+        for (const auto& game : allGames) {
+            pool.submit([runGame, game]() {
+                runGame(game);
+            });
+        }
+        
+        // Wait for all games to complete
+        std::cout << "Waiting for all " << allGames.size() << " games to complete..." << std::endl;
+        pool.wait_idle();
+        std::cout << "All games completed!" << std::endl;
+        
+    } else {
+        // Single-threaded execution with progress tracking
+        std::cout << "Using single-threaded execution" << std::endl;
+        
+        for (size_t i = 0; i < allGames.size(); ++i) {
+            const auto& game = allGames[i];
+            std::cout << "Progress: " << (i + 1) << "/" << allGames.size() << " - ";
+            runGame(game);
+        }
+    }
 }
 
 void Simulator::writeComparativeResults(const std::string& outputPath,
