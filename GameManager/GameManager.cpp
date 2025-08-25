@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <set>
 #include <memory>
+#include <filesystem>
 #include "../common/GameManagerRegistration.h"
 
 using namespace std;
@@ -18,7 +19,10 @@ GameManager::GameManager(bool verbose) :
 
 void GameManager::setOutputFile(string inputFileName) {
     // Create output filename based on input filename
-    string outputFileName = "output_" + inputFileName;
+    // Create output file in the same directory as the input file
+    std::filesystem::path inputPath(inputFileName);
+    std::filesystem::path outputPath = inputPath.parent_path() / ("output_" + inputPath.filename().string());
+    string outputFileName = outputPath.string();
     outputWriter = make_unique<OutputWriter>(outputFileName, verbose_);
 }
 

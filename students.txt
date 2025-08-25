@@ -2,6 +2,5 @@ student1_name 123456789
 student2_name 987654321
 
 
-2. output files
+2. outfile created in the wrong place
 5. test
-6. funcion length and modularity
