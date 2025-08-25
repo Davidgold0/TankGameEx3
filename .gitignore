@@ -1,8 +1,14 @@
-# Object files
-*.o
+# Object files - ignore in specific directories
+Algorithm/*.o
+GameManager/*.o
+Simulator/*.o
+UserCommon/*.o
 
-# Shared object files
-*.so
+# Shared object files - ignore in specific directories
+Algorithm/*.so
+GameManager/*.so
+Simulator/*.so
+UserCommon/*.so
 
 # Build artifacts
 *.exe
@@ -22,7 +28,3 @@
 .Trashes
 ehthumbs.db
 Thumbs.db
-
-# Allow files in specific other folders
-!Algorithms_other/
-!GameManagers_other/
