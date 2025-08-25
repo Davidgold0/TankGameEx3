@@ -77,6 +77,8 @@ CommandLineArgs parseCommandLine(int argc, char* argv[]) {
             args.gameManager = arg.substr(13); // Remove "game_manager=" prefix
         } else if (arg.find("algorithms_folder=") == 0) {
             args.algorithmsFolder = arg.substr(18); // Remove "algorithms_folder=" prefix
+        } else if (arg.find("game_maps_folder=") == 0) {
+            args.gameMapsFolder = arg.substr(17); // Remove "game_maps_folder=" prefix
         } else if (arg.find("algorithm1=") == 0) {
             args.algorithm1 = arg.substr(11); // Remove "algorithm1=" prefix
         } else if (arg.find("algorithm2=") == 0) {
