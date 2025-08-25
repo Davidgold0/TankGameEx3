@@ -22,3 +22,7 @@
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Allow files in specific other folders
+!Algorithms_other/
+!GameManagers_other/
