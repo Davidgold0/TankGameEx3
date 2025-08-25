@@ -104,6 +104,17 @@ std::string Simulator::formatGameResultMessage(int winner, const std::string& re
     }
 }
 
+void Simulator::logSOStatus(const std::string& soName, bool started) {
+    std::ofstream log_file("so_execution.log", std::ios::app);
+    if (log_file.is_open()) {
+        auto now = std::chrono::system_clock::now();
+        auto time_t = std::chrono::system_clock::to_time_t(now);
+        log_file << "[" << std::ctime(&time_t) << "] SO " << soName 
+                 << (started ? " STARTED" : " FINISHED") << std::endl;
+        log_file.close();
+    }
+}
+
 void Simulator::runSingleGame(const GameManagerRegistrar::Entry& gameManagerEntry,
                              const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algorithm1Entry,
                              const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algorithm2Entry,
@@ -111,6 +122,8 @@ void Simulator::runSingleGame(const GameManagerRegistrar::Entry& gameManagerEntr
                              const BoardData& gameMap,
                              bool verbose) {
     try {
+        logSOStatus(gameManagerEntry.so_name, true); // SO STARTED
+        
         std::cout << "[LOG] Step 1: Creating game manager..." << std::endl;
         // 1. Create the game manager directly from the entry
         std::unique_ptr<AbstractGameManager> gm = gameManagerEntry.factory(verbose);
@@ -216,12 +229,16 @@ void Simulator::runSingleGame(const GameManagerRegistrar::Entry& gameManagerEntr
         std::cout << "[LOG] Game completed successfully: " << gameManagerEntry.so_name << " vs " << algorithm1Entry.name() << " vs " << algorithm2Entry.name() 
                   << " - Winner: " << result.winner << " (" << result.reason << ") in " << result.rounds << " rounds" << std::endl;
         
+        logSOStatus(gameManagerEntry.so_name, false); // SO FINISHED (success)
+        
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception occurred while running game: " << e.what() << std::endl;
         std::cerr << "[ERROR] Game Manager: " << gameManagerEntry.so_name << std::endl;
         std::cerr << "[ERROR] Algorithm 1: " << algorithm1Entry.name() << std::endl;
         std::cerr << "[ERROR] Algorithm 2: " << algorithm2Entry.name() << std::endl;
         std::cerr << "[ERROR] Map file: " << mapFilename << std::endl;
+        
+        logSOStatus(gameManagerEntry.so_name, false); // SO FINISHED (even on error)
     }
     
     std::cout << "[LOG] Single game execution finished" << std::endl;
