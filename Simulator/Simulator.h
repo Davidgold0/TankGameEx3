@@ -79,6 +79,7 @@ private:
     std::string generateTimestamp();
     std::string extractLibraryName(const std::string& filepath);
     std::string formatGameResultMessage(int winner, const std::string& reason, size_t rounds);
+    void logSOStatus(const std::string& soName, bool started);
 
     void runSingleGame(const GameManagerRegistrar::Entry& gameManagerEntry, 
                       const AlgorithmRegistrar::AlgorithmAndPlayerFactories& algorithm1Entry, 
